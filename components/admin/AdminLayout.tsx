@@ -19,9 +19,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     if (hasHydrated) {
       if (!user) {
-        router.push('/login');
+        router.replace('/login');
       } else if (user.role !== 'admin') {
-        router.push('/dashboard/user');
+        router.replace('/dashboard/user');
       } else {
         setAuthorized(true);
       }

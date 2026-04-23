@@ -8,8 +8,8 @@ import PinModal from '@/components/ui/PinModal';
 import Spinner from '@/components/ui/Spinner';
 import { useAppStore } from '@/store/appStore';
 import { userService } from '@/lib/api/user.service';
-import { 
-  RiShieldKeyholeLine, RiWhatsappLine, RiHistoryLine, RiAlertLine, 
+import {
+  RiShieldKeyholeLine, RiWhatsappLine, RiHistoryLine, RiAlertLine,
   RiCheckLine, RiFileCopyLine, RiCloseLine, RiEyeLine, RiRefreshLine
 } from 'react-icons/ri';
 
@@ -48,7 +48,6 @@ export default function SecurityPage() {
       if (res.status === 'success') {
         setSecurityInfo({
           ...res.data,
-          // Use DB value; don't fall back to phone as it pre-fills unintentionally
           whatsapp_number: res.data?.whatsapp_number ?? '',
         });
       }
@@ -57,7 +56,7 @@ export default function SecurityPage() {
     } finally {
       setLoading(false);
     }
-  }, [addToast, user]);
+  }, [addToast]);
 
   useEffect(() => {
     fetchSecurityInfo();
@@ -152,13 +151,13 @@ export default function SecurityPage() {
           </div>
           <div className="banner-body">
             <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
-              This key grants full access to your account if you lose your password. 
+              This key grants full access to your account if you lose your password.
               <strong> Keep it in a secure, private place.</strong>
             </p>
             <div className="key-display">
               <code>{bannerKey}</code>
-              <button 
-                className="copy-btn" 
+              <button
+                className="copy-btn"
                 onClick={() => {
                   navigator.clipboard.writeText(bannerKey || '');
                   addToast('Key copied!', 'success');
@@ -211,9 +210,9 @@ export default function SecurityPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
             {/* Recovery Key Card */}
-            <div 
-              className="stat-card" 
-              style={{ 
+            <div
+              className="stat-card"
+              style={{
                 borderLeft: securityInfo.recovery_key_saved ? '4px solid #10B981' : '4px solid #F59E0B',
               }}
             >
@@ -233,19 +232,19 @@ export default function SecurityPage() {
                 )}
               </div>
 
-              <div style={{ 
-                padding: '16px', background: 'var(--color-bg-hover)', borderRadius: 12, 
+              <div style={{
+                padding: '16px', background: 'var(--color-bg-hover)', borderRadius: 12,
                 fontSize: '0.85rem', color: 'var(--color-text-muted)', lineHeight: 1.5,
                 border: '1px solid var(--color-border)'
               }}>
                 <RiAlertLine size={18} style={{ verticalAlign: 'middle', marginRight: 8, color: '#F59E0B' }} />
-                Your recovery key is required to reset your password if you ever get locked out. 
+                Your recovery key is required to reset your password if you ever get locked out.
                 You can reveal your current key or generate a new one at any time.
               </div>
 
               <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 {securityInfo.has_recovery_key && (
-                  <button 
+                  <button
                     onClick={() => setPinModal({ open: true, action: 'reveal' })}
                     className="btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}
@@ -253,7 +252,7 @@ export default function SecurityPage() {
                     <RiEyeLine size={18} /> Reveal My Key
                   </button>
                 )}
-                <button 
+                <button
                   onClick={() => setPinModal({ open: true, action: 'regenerate' })}
                   className="btn-secondary"
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}
@@ -346,7 +345,7 @@ export default function SecurityPage() {
         )}
       </main>
 
-      <PinModal 
+      <PinModal
         isOpen={pinModal.open}
         onClose={() => setPinModal({ open: false, action: null })}
         onSuccess={handlePinSuccess}

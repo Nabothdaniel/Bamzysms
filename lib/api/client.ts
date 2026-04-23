@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const getApiUrl = () => {
   // Use env variable if present, otherwise default to local server for development
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+  const url = process.env.NEXT_PUBLIC_API_URL || 'https://bamzysms.com/api';
   // Strip quotes and semicolons
   return url.replace(/["';]/g, '');
 };
@@ -133,31 +133,31 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     // Check if we are on a route that requires authentication
-    const isPublicRoute = typeof window !== 'undefined' && 
-      (window.location.pathname === '/login' || 
-       window.location.pathname === '/register' || 
-       window.location.pathname === '/');
+    const isPublicRoute = typeof window !== 'undefined' &&
+      (window.location.pathname === '/login' ||
+        window.location.pathname === '/register' ||
+        window.location.pathname === '/');
 
     // Auto-logout on 401 (expired/invalid JWT)
     if (error.response?.status === 401 && typeof window !== 'undefined' && !isPublicRoute) {
       console.warn('API returned 401 - Session expired or invalid. Redirecting to login.');
-      
+
       // Only clear if we actually have a token (to prevent logout loops)
       const token = localStorage.getItem('bamzysms-token') || sessionStorage.getItem('bamzysms-token');
-      
+
       if (token) {
         ['bamzysms-token', 'bamzysms-storage'].forEach((k) => {
-          try { localStorage.removeItem(k); } catch {}
-          try { sessionStorage.removeItem(k); } catch {}
+          try { localStorage.removeItem(k); } catch { }
+          try { sessionStorage.removeItem(k); } catch { }
         });
-        
+
         // Hard redirect to login — use replace so back button won't return to dashboard
         window.location.replace('/login?expired=true');
       }
-      
+
       return Promise.reject(new Error('Session expired. Please log in again.'));
     }
-    
+
     const message = error.response?.data?.message || 'Something went wrong';
     return Promise.reject(new Error(message));
   }

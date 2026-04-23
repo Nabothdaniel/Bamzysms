@@ -76,7 +76,7 @@ export default function AdminUsersPage() {
     } catch {
       addToast('Failed to load users', 'error');
     }
-  }, [addToast, page, search]);
+  }, [addToast, page, search, roleFilter]);
 
   useEffect(() => {
     if (!hasHydrated || user?.role !== 'admin') return;
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
     };
 
     bootstrap();
-  }, [hasHydrated, user?.role, page, roleFilter]); // Reload when page or role changes
+  }, [hasHydrated, user?.role, page, roleFilter, loadUsers]); // Reload when page or role changes
 
   // Handle search with debounce ideally, but for now simple trigger
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
       loadUsers(true);
     }, 500);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, hasHydrated, loadUsers]);
 
   const filteredUsers = useMemo(() => (users || []).filter((u) =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||

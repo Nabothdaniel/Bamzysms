@@ -2,14 +2,16 @@
 
 namespace BamzySMS\Core;
 
-class Router {
+class Router
+{
     private $routes = [];
 
-    public function add($method, $path, $controller, $action = null) {
+    public function add($method, $path, $controller, $action = null)
+    {
         $path = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[a-zA-Z0-9_-]+)', $path);
-        
+
         $handler = $action ? "{$controller}@{$action}" : $controller;
-        
+
         $this->routes[] = [
             'method' => $method,
             'path' => '#^' . $path . '$#',
@@ -17,7 +19,8 @@ class Router {
         ];
     }
 
-    public function resolve() {
+    public function resolve()
+    {
         $method = $_SERVER['REQUEST_METHOD'];
         // 1. Resolve URI
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -68,7 +71,7 @@ class Router {
             if ($route['method'] === $method && preg_match($route['path'], $uri, $matches)) {
                 $handler = $route['handler'];
                 list($controllerName, $methodName) = explode('@', $handler);
-                
+
                 $controllerClass = "BamzySMS\\Controllers\\" . $controllerName;
                 if (class_exists($controllerClass)) {
                     $controller = new $controllerClass();
@@ -81,13 +84,13 @@ class Router {
         header("Content-Type: application/json");
         header("HTTP/1.1 404 Not Found");
         echo json_encode([
-            'debug_marker'  => 'BAMZY_ROUTER_V2',
-            'error'         => 'Endpoint not found',
-            'method'        => $method,
+            'debug_marker' => 'BAMZY_ROUTER_V2',
+            'error' => 'Endpoint not found',
+            'method' => $method,
             'requested_uri' => $_SERVER['REQUEST_URI'],
-            'matched_uri'   => $uri,
-            'base_path'     => $basePath,
-            'script_name'   => $scriptName
+            'matched_uri' => $uri,
+            'base_path' => $basePath,
+            'script_name' => $scriptName
         ]);
     }
 }

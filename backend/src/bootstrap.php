@@ -65,10 +65,6 @@ function determine_cors_origin(): string {
     $allowed = env_or_default('CORS_ALLOWED_ORIGINS', '*');
     
     if ($allowed === '*') {
-        // For local development, if origin is localhost/127.0.0.1, echo it back
-        if ($origin && (str_contains($origin, 'localhost') || str_contains($origin, '127.0.0.1'))) {
-            return $origin;
-        }
         return '*';
     }
 
@@ -76,6 +72,13 @@ function determine_cors_origin(): string {
     if ($origin && in_array($origin, $list, true)) {
         return $origin;
     }
+    
+    // If we're local, return origin for ease of use
+    if ($origin && (str_contains($origin, 'localhost') || str_contains($origin, '127.0.0.1'))) {
+        return $origin;
+    }
+
+    // Default to the first allowed origin, or '*' if fallback is intended
     return $list[0] ?? '*';
 }
 
