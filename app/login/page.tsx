@@ -8,6 +8,7 @@ import { useAppStore } from '@/store/appStore';
 import PageLoader from '@/components/ui/PageLoader';
 import AuthLayout from '@/components/auth/AuthLayout';
 import { authService } from '@/lib/api';
+import { getDashboardBasePath } from '@/lib/dashboard-paths';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function LoginPage() {
       localStorage.setItem('bamzysms-token', response.data.token);
       login(response.data.user);
       addToast('Welcome back!', 'success');
-      router.push('/dashboard');
+      router.push(getDashboardBasePath(response.data.user.role));
     } catch (error: any) {
       addToast(error.message || 'Login failed', 'error');
     } finally {

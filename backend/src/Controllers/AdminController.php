@@ -7,18 +7,21 @@ use BamzySMS\Middleware\AuthMiddleware;
 use BamzySMS\Models\User;
 use BamzySMS\Models\Setting;
 use BamzySMS\Models\Transaction;
+use BamzySMS\Models\UsaNumber;
 use BamzySMS\Services\SmsBowerClient;
 
 class AdminController extends Controller {
     private $userModel;
     private $settingModel;
     private $transactionModel;
+    private $usaNumberModel;
     private $smsClient;
 
     public function __construct() {
         $this->userModel        = new User();
         $this->settingModel     = new Setting();
         $this->transactionModel = new Transaction();
+        $this->usaNumberModel   = new UsaNumber();
         $this->smsClient        = new SmsBowerClient();
     }
 
@@ -122,5 +125,103 @@ class AdminController extends Controller {
         }
 
         return $this->json(['status' => 'success', 'message' => 'Settings updated successfully.']);
+    }
+
+    /**
+     * GET /api/admin/usa-numbers
+     */
+    public function getUsaNumbers() {
+        $userId = AuthMiddleware::handle();
+        $this->checkAdmin($userId);
+
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;
+        $numbers = $this->usaNumberModel->getAll($limit);
+
+        return $this->json(['status' => 'success', 'data' => $numbers]);
+    }
+
+    /**
+     * POST /api/admin/usa-numbers
+     */
+    public function uploadUsaNumbers() {
+        $userId = AuthMiddleware::handle();
+        $this->checkAdmin($userId);
+
+        $data = $this->getPostData();
+        $entries = $data['numbers'] ?? null;
+
+        if (!is_array($entries)) {
+            $singlePhone = trim((string)($data['phoneNumber'] ?? ''));
+            $singleLink = trim((string)($data['receiveCodeLink'] ?? ''));
+            $entries = [[
+                'phoneNumber' => $singlePhone,
+                'receiveCodeLink' => $singleLink,
+            ]];
+        }
+
+        if (empty($entries)) {
+            return $this->json(['status' => 'error', 'message' => 'At least one USA number is required.'], 400);
+        }
+
+        $created = [];
+        $skipped = [];
+        $errors = [];
+
+        foreach ($entries as $index => $entry) {
+            $phoneNumber = $this->normalizePhoneNumber((string)($entry['phoneNumber'] ?? ''));
+            $receiveCodeLink = trim((string)($entry['receiveCodeLink'] ?? ''));
+
+            if ($phoneNumber === '') {
+                $errors[] = "Row " . ($index + 1) . ": phone number is required.";
+                continue;
+            }
+
+            if ($receiveCodeLink === '' || !filter_var($receiveCodeLink, FILTER_VALIDATE_URL)) {
+                $errors[] = "Row " . ($index + 1) . ": valid receive code link is required.";
+                continue;
+            }
+
+            if ($this->usaNumberModel->findByPhoneNumber($phoneNumber)) {
+                $skipped[] = [
+                    'phoneNumber' => $phoneNumber,
+                    'reason' => 'already_exists',
+                ];
+                continue;
+            }
+
+            try {
+                $id = $this->usaNumberModel->create($phoneNumber, $receiveCodeLink, $userId);
+                $created[] = [
+                    'id' => $id,
+                    'phoneNumber' => $phoneNumber,
+                    'receiveCodeLink' => $receiveCodeLink,
+                ];
+            } catch (\Throwable $e) {
+                $errors[] = "Row " . ($index + 1) . ": failed to save entry.";
+            }
+        }
+
+        if (empty($created) && !empty($errors)) {
+            return $this->json([
+                'status' => 'error',
+                'message' => 'No USA numbers were uploaded.',
+                'errors' => $errors,
+                'skipped' => $skipped,
+            ], 422);
+        }
+
+        return $this->json([
+            'status' => 'success',
+            'message' => count($created) . ' USA number(s) uploaded successfully.',
+            'data' => [
+                'created' => $created,
+                'skipped' => $skipped,
+                'errors' => $errors,
+            ],
+        ]);
+    }
+
+    private function normalizePhoneNumber(string $phoneNumber): string {
+        return preg_replace('/[^\d+]/', '', trim($phoneNumber)) ?? '';
     }
 }

@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { RiArrowRightLine, RiArrowLeftLine, RiCheckLine } from 'react-icons/ri';
+import { useAppStore } from '@/store/appStore';
+import { getDashboardBasePath } from '@/lib/dashboard-paths';
 
 const QUESTIONS = [
   {
@@ -28,6 +30,7 @@ const QUESTIONS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user } = useAppStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
 
@@ -56,7 +59,7 @@ export default function OnboardingPage() {
 
   const finish = () => {
     // In a real app, we'd save answers to the backend here
-    router.push('/dashboard');
+    router.push(getDashboardBasePath(user?.role));
   };
 
   const q = QUESTIONS[currentStep];

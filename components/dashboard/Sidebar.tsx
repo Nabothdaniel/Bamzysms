@@ -8,29 +8,32 @@ import {
   RiPhoneLine, RiGlobalLine, RiUserSharedLine,
   RiQuestionLine, RiHistoryLine, RiExchangeLine,
   RiLogoutBoxLine, RiSignalTowerFill, RiShieldStarLine,
-  RiUserSettingsLine,
+  RiBankLine,
 } from 'react-icons/ri';
 import { useAppStore } from '@/store/appStore';
+import { getDashboardBasePath, getDashboardPath } from '@/lib/dashboard-paths';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: <RiDashboardLine size={18} />, label: 'Dashboard' },
-  { href: '/dashboard/fund-wallet', icon: <RiWalletLine size={18} />, label: 'Fund Wallet' },
-  { href: '/dashboard/buy-logs', icon: <RiShoppingBag3Line size={18} />, label: 'Buy Logs' },
-  { href: '/dashboard/usa-numbers', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
-  { href: '/dashboard/all-countries', icon: <RiGlobalLine size={18} />, label: 'All Countries Numbers' },
-  { href: '/dashboard/refer', icon: <RiUserSharedLine size={18} />, label: 'Refer & Earn' },
-  { href: '/dashboard/faqs', icon: <RiQuestionLine size={18} />, label: 'FAQs' },
+  { path: '', icon: <RiDashboardLine size={18} />, label: 'Dashboard' },
+  { path: 'fund-wallet', icon: <RiWalletLine size={18} />, label: 'Fund Wallet' },
+  { path: 'buy-logs', icon: <RiShoppingBag3Line size={18} />, label: 'Buy Logs' },
+  { path: 'usa-numbers', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
+  { path: 'all-countries', icon: <RiGlobalLine size={18} />, label: 'All Countries Numbers' },
+  { path: 'refer', icon: <RiUserSharedLine size={18} />, label: 'Refer & Earn' },
+  { path: 'faqs', icon: <RiQuestionLine size={18} />, label: 'FAQs' },
 ];
 
 const HISTORY_ITEMS = [
-  { href: '/dashboard/numbers-history', icon: <RiHistoryLine size={18} />, label: 'Numbers History' },
-  { href: '/dashboard/transactions', icon: <RiExchangeLine size={18} />, label: 'Transaction History' },
+  { path: 'numbers-history', icon: <RiHistoryLine size={18} />, label: 'Numbers History' },
+  { path: 'transactions', icon: <RiExchangeLine size={18} />, label: 'Transaction History' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user, setSidebarOpen } = useAppStore();
+  const userDashboardBasePath = getDashboardBasePath('user');
+  const adminDashboardBasePath = getDashboardBasePath('admin');
 
   const handleLogout = () => {
     logout();
@@ -97,8 +100,13 @@ export default function Sidebar() {
       <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }} onClick={handleNavClick}>
-              <div className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}>
+            <Link
+              key={item.path}
+              href={getDashboardPath('user', item.path)}
+              style={{ textDecoration: 'none' }}
+              onClick={handleNavClick}
+            >
+              <div className={`sidebar-item ${pathname === getDashboardPath('user', item.path) ? 'active' : ''}`}>
                 {item.icon}
                 {item.label}
               </div>
@@ -107,20 +115,34 @@ export default function Sidebar() {
           
           {/* Admin only */}
           {user?.role === 'admin' && (
-            <Link href="/admin" style={{ textDecoration: 'none' }} onClick={handleNavClick}>
-              <div className={`sidebar-item ${pathname === '/admin' ? 'active' : ''}`} style={{ color: 'var(--color-primary)' }}>
-                <RiShieldStarLine size={18} />
-                Admin Dashboard
-              </div>
-            </Link>
+            <>
+              <Link href={adminDashboardBasePath} style={{ textDecoration: 'none' }} onClick={handleNavClick}>
+                <div className={`sidebar-item ${pathname === adminDashboardBasePath ? 'active' : ''}`} style={{ color: 'var(--color-primary)' }}>
+                  <RiShieldStarLine size={18} />
+                  Admin Dashboard
+                </div>
+              </Link>
+
+              <Link href={getDashboardPath('admin', 'funding')} style={{ textDecoration: 'none' }} onClick={handleNavClick}>
+                <div className={`sidebar-item ${pathname === getDashboardPath('admin', 'funding') ? 'active' : ''}`} style={{ color: 'var(--color-primary)' }}>
+                  <RiBankLine size={18} />
+                  Admin Funding
+                </div>
+              </Link>
+            </>
           )}
         </div>
 
         <div className="sidebar-group-label">History</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {HISTORY_ITEMS.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }} onClick={handleNavClick}>
-              <div className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}>
+            <Link
+              key={item.path}
+              href={getDashboardPath('user', item.path)}
+              style={{ textDecoration: 'none' }}
+              onClick={handleNavClick}
+            >
+              <div className={`sidebar-item ${pathname === getDashboardPath('user', item.path) ? 'active' : ''}`}>
                 {item.icon}
                 {item.label}
               </div>

@@ -75,6 +75,8 @@ $router->add('GET',  '/api/admin/users',            'AdminController', 'getAllUs
 $router->add('POST', '/api/admin/user/balance',     'AdminController', 'updateUserBalance');
 $router->add('GET',  '/api/admin/settings',         'AdminController', 'getSettings');
 $router->add('POST', '/api/admin/settings',        'AdminController', 'updateSettings');
+$router->add('GET',  '/api/admin/usa-numbers',      'AdminController', 'getUsaNumbers');
+$router->add('POST', '/api/admin/usa-numbers',      'AdminController', 'uploadUsaNumbers');
 
 // Utils
 $router->add('GET',  '/api/utils/server-ip',      'UtilsController',       'getServerIp');

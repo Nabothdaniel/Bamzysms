@@ -69,3 +69,16 @@ CREATE TABLE IF NOT EXISTS sms_purchases (
 --   ADD COLUMN activation_cost DECIMAL(10,4) DEFAULT 0.0000,
 --   MODIFY COLUMN status ENUM('pending','received','completed','cancelled','expired') DEFAULT 'pending',
 --   ADD INDEX idx_activation_id (activation_id);
+
+CREATE TABLE IF NOT EXISTS usa_numbers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone_number VARCHAR(30) NOT NULL UNIQUE,
+    receive_code_link TEXT NOT NULL,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    uploaded_by INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id),
+    INDEX idx_usa_numbers_status (status),
+    INDEX idx_usa_numbers_uploaded_by (uploaded_by)
+);

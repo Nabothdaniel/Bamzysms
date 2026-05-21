@@ -9,12 +9,26 @@ import {
   RiSignalTowerFill,
 } from 'react-icons/ri';
 import { useAppStore } from '@/store/appStore';
+import { getDashboardPath } from '@/lib/dashboard-paths';
 
 export default function Topbar({ title }: { title?: string }) {
   const { toggleSidebar, user, logout } = useAppStore();
   const router = useRouter();
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const accountRole = user?.role === 'admin' ? 'admin' : 'user';
+  const quickLinks = [
+    { icon: <RiUserSettingsLine size={15} />, label: 'Profile', href: getDashboardPath('user', 'profile') },
+    { icon: <RiShoppingCartLine size={15} />, label: 'Buy Numbers', href: getDashboardPath('user', 'usa-numbers') },
+  ];
+
+  if (accountRole === 'admin') {
+    quickLinks.unshift({
+      icon: <RiSignalTowerFill size={15} />,
+      label: 'Admin Dashboard',
+      href: getDashboardPath('admin'),
+    });
+  }
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -148,10 +162,7 @@ export default function Topbar({ title }: { title?: string }) {
               </div>
 
               <div style={{ padding: '6px' }}>
-                {[
-                  { icon: <RiUserSettingsLine size={15} />, label: 'Profile', href: '/dashboard/profile' },
-                  { icon: <RiShoppingCartLine size={15} />, label: 'Buy Numbers', href: '/dashboard/usa-numbers' },
-                ].map((item) => (
+                {quickLinks.map((item) => (
                   <Link key={item.label} href={item.href} style={{ textDecoration: 'none' }}
                     onClick={() => setDropOpen(false)}>
                     <div style={{

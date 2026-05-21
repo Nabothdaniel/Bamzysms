@@ -16,6 +16,23 @@ export interface AdminSettings {
   [key: string]: string;
 }
 
+export interface UsaNumberEntry {
+  id: number;
+  phone_number: string;
+  receive_code_link: string;
+  status: 'active' | 'inactive';
+  uploaded_by: number;
+  uploaded_by_name?: string | null;
+  uploaded_by_email?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UploadUsaNumberPayload {
+  phoneNumber: string;
+  receiveCodeLink: string;
+}
+
 export const adminService = {
   // Get all users
   getUsers: (): Promise<{ status: string; data: AdminUser[] }> =>
@@ -36,4 +53,26 @@ export const adminService = {
   // Get provider (SMSBower) balance
   getProviderBalance: (): Promise<{ status: string; balance: number }> =>
     apiClient.get('/admin/provider-balance'),
+
+  // Get uploaded USA numbers
+  getUsaNumbers: (): Promise<{ status: string; data: UsaNumberEntry[] }> =>
+    apiClient.get('/admin/usa-numbers'),
+
+  // Upload one or many USA numbers
+  uploadUsaNumbers: (
+    payload: UploadUsaNumberPayload[] | UploadUsaNumberPayload
+  ): Promise<{
+    status: string;
+    message: string;
+    data?: {
+      created: Array<{ id: number; phoneNumber: string; receiveCodeLink: string }>;
+      skipped: Array<{ phoneNumber: string; reason: string }>;
+      errors: string[];
+    };
+    errors?: string[];
+    skipped?: Array<{ phoneNumber: string; reason: string }>;
+  }> =>
+    Array.isArray(payload)
+      ? apiClient.post('/admin/usa-numbers', { numbers: payload })
+      : apiClient.post('/admin/usa-numbers', payload),
 };
