@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { name: 'Funding History', href: '/dashboard/admin/funding', icon: RiExchangeFundsLine },
   { name: 'Price Management', href: '/dashboard/admin/prices', icon: RiMoneyDollarCircleLine },
   { name: 'Telegram Inventory', href: '/dashboard/admin/telegram-numbers', icon: RiSimCardLine },
+  { name: 'USA Numbers', href: '/dashboard/admin/usa-numbers', icon: RiSimCardLine },
   { name: 'Global Settings', href: '/dashboard/admin/settings', icon: RiSettings4Line },
   { name: 'System Logs', href: '/dashboard/admin/logs', icon: RiHistoryLine },
 ];

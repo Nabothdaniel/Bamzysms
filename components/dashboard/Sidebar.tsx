@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/user/fund-wallet', icon: <RiWalletLine size={18} />, label: 'Fund Wallet' },
   { href: 'https://Bamzystore.org/', icon: <RiShoppingBag3Line size={18} />, label: 'Buy Logs' },
   { href: '/dashboard/user/usa-numbers', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
+  { href: '/dashboard/user/usa-numbers-beta', icon: <RiPhoneLine size={18} />, label: 'USA Numbers Beta' },
   { href: '/dashboard/user/all-countries', icon: <RiGlobalLine size={18} />, label: 'All Countries Numbers' },
   { href: '/dashboard/user/telegram-numbers', icon: <RiSendPlaneLine size={18} />, label: 'Telegram Numbers' },
   { href: '/dashboard/user/refer', icon: <RiUserSharedLine size={18} />, label: 'Refer & Earn' },

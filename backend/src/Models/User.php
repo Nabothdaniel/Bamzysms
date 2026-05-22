@@ -169,6 +169,11 @@ class User {
         ]);
     }
 
+    public function updatePasswordHashById(int $userId, string $passwordHash): bool {
+        $stmt = $this->db->prepare("UPDATE users SET password = ? WHERE id = ?");
+        return $stmt->execute([$passwordHash, $userId]);
+    }
+
     public function deductBalance($userId, $amount) {
         $stmt = $this->db->prepare("UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?");
         return $stmt->execute([$amount, $userId, $amount]);

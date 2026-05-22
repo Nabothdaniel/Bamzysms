@@ -102,6 +102,29 @@ CREATE TABLE IF NOT EXISTS migrations (
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS usa_numbers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone_number VARCHAR(30) NOT NULL,
+    service_name VARCHAR(120) NOT NULL DEFAULT 'USA Number',
+    category VARCHAR(120) NOT NULL DEFAULT 'WhatsApp',
+    redirect_url TEXT NOT NULL,
+    sell_price DECIMAL(10,2) NOT NULL,
+    cost_price DECIMAL(10,2) DEFAULT 0.00,
+    notes VARCHAR(255) NULL,
+    otp_code TEXT NULL,
+    uploaded_by INT NOT NULL,
+    sold_to INT NULL,
+    status ENUM('available', 'sold', 'cancelled') DEFAULT 'available',
+    sold_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_usa_phone (phone_number),
+    KEY idx_usa_status (status),
+    KEY idx_usa_sold_to (sold_to),
+    FOREIGN KEY (uploaded_by) REFERENCES users(id),
+    FOREIGN KEY (sold_to) REFERENCES users(id)
+);
+
 -- Initial Seed Data
 INSERT IGNORE INTO settings (setting_key, setting_value) VALUES 
 ('price_markup_multiplier', '1.5'),

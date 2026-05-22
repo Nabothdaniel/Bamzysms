@@ -67,6 +67,24 @@ export interface ManualNumberCancellationRequest {
   created_at: string;
 }
 
+export interface AdminUsaNumber {
+  id: number;
+  phone_number: string;
+  service_name: string;
+  category: string;
+  redirect_url: string;
+  cost_price: number;
+  sell_price: number;
+  notes?: string | null;
+  otp_code?: string | null;
+  has_redirect?: boolean;
+  status: 'available' | 'sold' | 'cancelled';
+  uploaded_by_username: string;
+  sold_to_username?: string | null;
+  sold_at?: string | null;
+  created_at: string;
+}
+
 export const adminService = {
   // Get paginated users
   getUsers: (params: { page: number; limit: number; search?: string; role?: string }): Promise<{ 
@@ -197,6 +215,50 @@ export const adminService = {
     pagination: { total: number; page: number; limit: number; pages: number };
   }> =>
     apiClient.get(`/admin/manual-numbers/cancellation-requests?page=${params.page}&limit=${params.limit}&status=${params.status || ''}`),
+
+  getUsaNumbers: (params: { page: number; limit: number; search?: string; status?: string }): Promise<{
+    status: string;
+    data: AdminUsaNumber[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> =>
+    apiClient.get(`/admin/usa-numbers?page=${params.page}&limit=${params.limit}&search=${encodeURIComponent(params.search || '')}&status=${params.status || ''}`),
+
+  createUsaNumber: (payload: {
+    phone_number: string;
+    service_name: string;
+    category: string;
+    redirect_url: string;
+    cost_price?: number;
+    sell_price: number;
+    notes?: string;
+  }): Promise<{ status: string; message: string; data: { id: number } }> =>
+    apiClient.post('/admin/usa-numbers', payload),
+
+  bulkCreateUsaNumbers: (rows: Array<{
+    phone_number: string;
+    service_name: string;
+    category: string;
+    redirect_url: string;
+    cost_price?: number;
+    sell_price: number;
+    notes?: string;
+  }>): Promise<{ status: string; message: string; data: { created: number; failed: number; errors: { row: number; message: string }[]; batch: string } }> =>
+    apiClient.post('/admin/usa-numbers/bulk', { rows }),
+
+  updateUsaNumber: (payload: {
+    numberId: number;
+    phone_number: string;
+    service_name: string;
+    category: string;
+    redirect_url: string;
+    cost_price?: number;
+    sell_price: number;
+    notes?: string;
+  }): Promise<{ status: string; message: string }> =>
+    apiClient.post('/admin/usa-numbers/update', payload),
+
+  deleteUsaNumber: (numberId: number): Promise<{ status: string; message: string }> =>
+    apiClient.delete(`/admin/usa-numbers?numberId=${numberId}`),
 
   // Refresh dynamic exchange rate
   refreshExchangeRate: (): Promise<{ status: string; rate: number }> =>

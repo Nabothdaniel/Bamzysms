@@ -4,19 +4,22 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  RiEyeLine, RiEyeOffLine, RiUserLine, RiLockLine,
-  RiArrowRightLine, RiArrowLeftLine, RiMessage2Line, RiSignalTowerFill
+  RiUserLine, RiArrowRightLine, RiMessage2Line, RiLockLine
 } from 'react-icons/ri';
 import PageLoader from '@/components/ui/PageLoader';
 import AuthLayout from '@/components/auth/AuthLayout';
+import AuthBrand from '@/components/auth/AuthBrand';
+import AuthTextField from '@/components/auth/AuthTextField';
+import AuthPasswordField from '@/components/auth/AuthPasswordField';
 import { authService } from '@/lib/api/auth.service';
 import { useAppStore } from '@/store/appStore';
+import { validatePasswordConfirmation, type ForgotPasswordFormValues } from '@/lib/auth/forms';
 
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [recoveryMode, setRecoveryMode] = useState<'otp' | 'key'>('otp');
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ForgotPasswordFormValues>({
     username: '',
     otp: '',
     recovery_key: '',
@@ -81,14 +84,10 @@ export default function ForgotPasswordPage() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.password || !form.confirm) {
-      addToast('Please fill in both password fields.', 'error'); return;
-    }
-    if (form.password !== form.confirm) {
-      addToast('Passwords do not match.', 'error'); return;
-    }
-    if (form.password.length < 6) {
-      addToast('Password must be at least 6 characters.', 'error'); return;
+
+    const passwordError = validatePasswordConfirmation(form.password, form.confirm);
+    if (passwordError) {
+      addToast(passwordError, 'error'); return;
     }
 
     setLoading(true);
@@ -122,20 +121,7 @@ export default function ForgotPasswordPage() {
       {loading && <PageLoader />}
 
       <div style={{ paddingBottom: 24 }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: 'var(--color-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px var(--color-primary-glow)',
-          }}>
-            <RiSignalTowerFill size={20} color="#fff" />
-          </div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '1.1rem' }}>
-            bamzy<span style={{ color: 'var(--color-primary)' }}>SMS</span>
-          </span>
-        </div>
+        <AuthBrand />
 
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '2rem', marginBottom: 8 }}>
           {step === 1 ? 'Forgot Password?' : step === 2 ? 'Enter Reset Code' : 'Set New Password'}
@@ -176,31 +162,26 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>Username</label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-faint)', display: 'flex' }}>
-                    <RiUserLine size={18} />
-                  </span>
-                  <input name="username" type="text" className="input-field" placeholder="Enter your username"
-                    value={form.username} onChange={handleChange} style={{ paddingLeft: 44 }} />
-                </div>
-              </div>
+              <AuthTextField
+                label="Username"
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                placeholder="Enter your username"
+                icon={RiUserLine}
+              />
 
               {recoveryMode === 'key' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>Recovery Key</label>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-faint)', display: 'flex' }}>
-                      <RiLockLine size={18} />
-                    </span>
-                    <input name="recovery_key" type="text" className="input-field" placeholder="BAMZY-XXXX-XXXX"
-                      value={form.recovery_key} onChange={handleChange} style={{ paddingLeft: 44, textTransform: 'uppercase' }} />
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: 8 }}>
-                    Enter the secret key given to you during registration.
-                  </p>
-                </div>
+                <AuthTextField
+                  label="Recovery Key"
+                  name="recovery_key"
+                  value={form.recovery_key}
+                  onChange={handleChange}
+                  placeholder="BAMZY-XXXX-XXXX"
+                  icon={RiLockLine}
+                  inputStyle={{ textTransform: 'uppercase' }}
+                  helperText="Enter the secret key given to you during registration."
+                />
               )}
 
               <button
@@ -217,16 +198,16 @@ export default function ForgotPasswordPage() {
 
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>6-Digit Code</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-faint)', display: 'flex' }}>
-                  <RiMessage2Line size={18} />
-                </span>
-                <input name="otp" type="text" maxLength={6} className="input-field" placeholder="000000"
-                  value={form.otp} onChange={handleChange} style={{ paddingLeft: 44, letterSpacing: '0.5em', fontWeight: 700 }} />
-              </div>
-            </div>
+            <AuthTextField
+              label="6-Digit Code"
+              name="otp"
+              value={form.otp}
+              onChange={handleChange}
+              placeholder="000000"
+              icon={RiMessage2Line}
+              maxLength={6}
+              inputStyle={{ letterSpacing: '0.5em', fontWeight: 700 }}
+            />
             <button type="button" onClick={handleVerifyOtp} className="btn-primary"
               style={{ padding: '15px', width: '100%', fontSize: '1rem', marginTop: 10 }}>
               Verify Code <RiArrowRightLine size={18} />
@@ -245,37 +226,25 @@ export default function ForgotPasswordPage() {
 
         {step === 3 && (
           <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>New Password</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-faint)', display: 'flex' }}>
-                  <RiLockLine size={18} />
-                </span>
-                <input name="password" type={showPass ? 'text' : 'password'} className="input-field"
-                  placeholder="Enter new password" value={form.password} onChange={handleChange}
-                  style={{ paddingLeft: 44, paddingRight: 44 }} />
-                <button type="button" onClick={() => setShowPass(!showPass)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)', display: 'flex' }}>
-                  {showPass ? <RiEyeOffLine size={18} /> : <RiEyeLine size={18} />}
-                </button>
-              </div>
-            </div>
+            <AuthPasswordField
+              label="New Password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Enter new password"
+              visible={showPass}
+              onToggleVisibility={() => setShowPass((value) => !value)}
+            />
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>Confirm Password</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-faint)', display: 'flex' }}>
-                  <RiLockLine size={18} />
-                </span>
-                <input name="confirm" type={showConfirm ? 'text' : 'password'} className="input-field"
-                  placeholder="Confirm new password" value={form.confirm} onChange={handleChange}
-                  style={{ paddingLeft: 44, paddingRight: 44 }} />
-                <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-faint)', display: 'flex' }}>
-                  {showConfirm ? <RiEyeOffLine size={18} /> : <RiEyeLine size={18} />}
-                </button>
-              </div>
-            </div>
+            <AuthPasswordField
+              label="Confirm Password"
+              name="confirm"
+              value={form.confirm}
+              onChange={handleChange}
+              placeholder="Confirm new password"
+              visible={showConfirm}
+              onToggleVisibility={() => setShowConfirm((value) => !value)}
+            />
 
             <button type="submit" className="btn-primary"
               disabled={loading}

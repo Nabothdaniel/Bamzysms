@@ -5,17 +5,20 @@ namespace BamzySMS\Controllers;
 use BamzySMS\Core\Controller;
 use BamzySMS\Models\User;
 use BamzySMS\Models\Verification;
+use BamzySMS\Services\PasswordService;
 use BamzySMS\Services\WhatsAppService;
 
 class AuthController extends Controller {
     private $userModel;
     private $verificationModel;
     private $whatsappService;
+    private $passwordService;
 
-    public function __construct($userModel = null, $verificationModel = null, $whatsappService = null) {
+    public function __construct($userModel = null, $verificationModel = null, $whatsappService = null, $passwordService = null) {
         $this->userModel = $userModel ?? new User();
         $this->verificationModel = $verificationModel ?? new Verification();
         $this->whatsappService = $whatsappService ?? new WhatsAppService();
+        $this->passwordService = $passwordService ?? new PasswordService();
     }
 
     private function sanitizeUsername($username) {
@@ -155,7 +158,15 @@ class AuthController extends Controller {
         // Only find by username
         $user = $this->userModel->findByUsername($username);
 
-        if ($user && password_verify($password, $user['password'])) {
+        if ($user && $this->passwordService->verify($password, $user['password'] ?? null)) {
+            if (
+                isset($user['id']) &&
+                method_exists($this->userModel, 'updatePasswordHashById') &&
+                $this->passwordService->shouldUpgrade($user['password'] ?? null)
+            ) {
+                $this->userModel->updatePasswordHashById((int) $user['id'], $this->passwordService->hash($password));
+            }
+
             $token = \BamzySMS\Core\JwtHelper::generate([
                 'id' => $user['id'],
                 'username' => $user['username'] ?? '',

@@ -4,10 +4,12 @@ require_once __DIR__ . '/../src/bootstrap.php';
 
 use BamzySMS\Controllers\AuthController;
 use BamzySMS\Core\Controller;
+use BamzySMS\Services\PasswordService;
 
 class FakeUserModel {
     public $createdData = null;
     public $existingUser = null;
+    public $updatedPasswordHash = null;
 
     public function findByUsername($username) {
         if ($this->existingUser && $this->existingUser['username'] === $username) {
@@ -18,7 +20,10 @@ class FakeUserModel {
 
     public function create($data) {
         $this->createdData = $data;
-        return 77;
+        return [
+            'id' => 77,
+            'recovery_key' => 'BAMZY-ABCD-EFGH',
+        ];
     }
 
     public function findById($id) {
@@ -34,6 +39,11 @@ class FakeUserModel {
     }
 
     public function updatePassword($username, $password) {
+        return true;
+    }
+
+    public function updatePasswordHashById($id, $passwordHash) {
+        $this->updatedPasswordHash = ['id' => $id, 'hash' => $passwordHash];
         return true;
     }
 }
@@ -123,8 +133,7 @@ $result = $controller->withPayload([
     'username' => 'tester001',
     'password' => 'secret123',
 ])->register();
-assertSameValue(400, $result['statusCode'], 'register should require password confirmation.');
-assertMatches('/Password confirmation is required/i', $result['body']['message'] ?? '', 'register confirmation message mismatch.');
+assertSameValue(201, $result['statusCode'], 'register should allow frontend-validated signups without confirm_password.');
 
 $result = $controller->withPayload([
     'username' => 'tester001',
@@ -146,5 +155,21 @@ assertSameValue(201, $result['statusCode'], 'register should succeed with valid 
 assertSameValue('tester_001script', $userModel->createdData['username'], 'username should be normalized and sanitized.');
 assertSameValue('Daniel User', $userModel->createdData['name'], 'name should be sanitized.');
 assertSameValue('+2348012345678', $userModel->createdData['phone'], 'phone should be sanitized.');
+
+$passwordService = new PasswordService();
+$userModel->existingUser = [
+    'id' => 55,
+    'username' => 'legacyuser',
+    'password' => 'legacy-pass',
+    'role' => 'user',
+];
+
+$result = $controller->withPayload([
+    'username' => 'legacyuser',
+    'password' => 'legacy-pass',
+])->login();
+assertSameValue(200, $result['statusCode'], 'login should accept legacy plain-text passwords.');
+assertSameValue(55, $userModel->updatedPasswordHash['id'] ?? null, 'legacy login should upgrade the stored password.');
+assertSameValue(true, $passwordService->verify('legacy-pass', $userModel->updatedPasswordHash['hash'] ?? null), 'upgraded password hash should verify correctly.');
 
 echo "AuthController tests passed.\n";

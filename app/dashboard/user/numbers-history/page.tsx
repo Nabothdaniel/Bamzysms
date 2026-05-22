@@ -8,6 +8,7 @@ import EmptyHistory from '@/components/dashboard/EmptyHistory';
 import PageLoader from '@/components/ui/PageLoader';
 import { smsService } from '@/lib/api';
 import { manualNumberService, TelegramNumberItem } from '@/lib/api/manual-number.service';
+import { usaNumberService, UsaNumberItem } from '@/lib/api/usa-number.service';
 import { RiRefreshLine } from 'react-icons/ri';
 import { useAppStore } from '@/store/appStore';
 import HistoryViewSwitcher from '@/components/dashboard/history/HistoryViewSwitcher';
@@ -26,7 +27,11 @@ export default function NumbersHistoryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [telegramLoading, setTelegramLoading] = useState(true);
   const [telegramItems, setTelegramItems] = useState<TelegramNumberItem[]>([]);
+  const [usaLoading, setUsaLoading] = useState(true);
+  const [usaItems, setUsaItems] = useState<UsaNumberItem[]>([]);
   const [telegramVisibility, setTelegramVisibility] = useState<Record<number, boolean>>({});
+  const [usaVisibility, setUsaVisibility] = useState<Record<number, boolean>>({});
+  const [refreshingUsaOtpId, setRefreshingUsaOtpId] = useState<number | null>(null);
   const [telegramCancelReason, setTelegramCancelReason] = useState<Record<number, string>>({});
   const [submittingTelegramCancelId, setSubmittingTelegramCancelId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -78,6 +83,19 @@ export default function NumbersHistoryPage() {
     }
   }, [addToast]);
 
+  const fetchUsaHistory = useCallback(async () => {
+    setUsaLoading(true);
+    try {
+      const res = await usaNumberService.getMine();
+      setUsaItems(res?.data || []);
+    } catch (err) {
+      console.error('Failed to fetch USA history', err);
+      addToast('Failed to load USA number beta history', 'error');
+    } finally {
+      setUsaLoading(false);
+    }
+  }, [addToast]);
+
   const startPolling = useCallback((dbId: number, activationId: number) => {
     const poll = async () => {
       try {
@@ -110,11 +128,12 @@ export default function NumbersHistoryPage() {
   useEffect(() => {
     fetchHistory();
     fetchTelegramHistory();
+    fetchUsaHistory();
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       Object.values(pollingRef.current).forEach(clearTimeout);
     };
-  }, [fetchHistory, fetchTelegramHistory]);
+  }, [fetchHistory, fetchTelegramHistory, fetchUsaHistory]);
 
   // Handle active status polling
   useEffect(() => {
@@ -207,6 +226,23 @@ export default function NumbersHistoryPage() {
     }
   };
 
+  const handleRefreshUsaOtp = async (item: UsaNumberItem) => {
+    setRefreshingUsaOtpId(item.id);
+    try {
+      const res = await usaNumberService.refreshOtp(item.id);
+      setUsaItems((prev) =>
+        prev.map((entry) =>
+          entry.id === item.id ? { ...entry, otp_code: res?.data?.otp_code || entry.otp_code } : entry
+        )
+      );
+      addToast(res.message || 'OTP refreshed.', 'success');
+    } catch (error: any) {
+      addToast(error.message || 'Failed to refresh USA OTP', 'error');
+    } finally {
+      setRefreshingUsaOtpId(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <Topbar title="Number History" />
@@ -266,6 +302,86 @@ export default function NumbersHistoryPage() {
             isLoadingMore={isLoadingMore}
           />
         )}
+
+        <section style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800, color: 'var(--color-primary)' }}>
+                USA Numbers Beta
+              </div>
+              <h2 style={{ marginTop: 8, fontSize: '1.6rem', fontWeight: 800 }}>USA Number Beta History</h2>
+            </div>
+            <Link href="/dashboard/user/usa-numbers-beta" className="btn-secondary">
+              Buy USA Numbers Beta
+            </Link>
+          </div>
+
+          {usaLoading ? (
+            <PageLoader />
+          ) : usaItems.length === 0 ? (
+            <EmptyHistory message="No USA number beta history found" />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 28 }}>
+              {usaItems.map((item) => {
+                const visible = !!usaVisibility[item.id];
+                return (
+                  <article key={item.id} className="stat-card" style={{ padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                      <div>
+                        <div className="badge badge-primary">{item.category || 'USA Beta'}</div>
+                        <div style={{ marginTop: 12, fontSize: '1.1rem', fontWeight: 800 }}>
+                          {visible ? item.phone_number : `${item.phone_number.slice(0, 5)}•••••${item.phone_number.slice(-2)}`}
+                        </div>
+                        <div style={{ marginTop: 6, color: 'var(--color-text-faint)', fontSize: '0.88rem' }}>
+                          {item.service_name || 'USA Number'}
+                        </div>
+                      </div>
+                      <button
+                        className="btn-ghost"
+                        style={{ minWidth: 'auto', padding: '8px 12px' }}
+                        onClick={() => setUsaVisibility((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                      >
+                        {visible ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-faint)' }}>
+                        {item.sold_at ? new Date(item.sold_at).toLocaleDateString() : '—'}
+                      </div>
+                      <div style={{ fontWeight: 800, color: 'var(--color-primary)' }}>{formatMoney(item.sell_price)}</div>
+                    </div>
+
+                    <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: 'var(--color-bg)' }}>
+                      <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, color: 'var(--color-text-faint)', marginBottom: 8 }}>
+                        OTP From Redirect Link
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--color-primary)' }}>{item.otp_code || 'Waiting...'}</span>
+                        {item.otp_code && (
+                          <button className="btn-ghost" style={{ minWidth: 'auto', padding: 8 }} onClick={() => handleCopy(item.otp_code || '')}>
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleRefreshUsaOtp(item)}
+                        disabled={refreshingUsaOtpId === item.id}
+                      >
+                        {refreshingUsaOtpId === item.id ? 'Refreshing...' : 'Refresh OTP'}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+        </section>
 
         <section style={{ marginTop: 28 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>

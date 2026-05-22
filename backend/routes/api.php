@@ -97,6 +97,20 @@ $router->add('GET',  '/events/stream',            'EventController',       'stre
 $router->add('GET',  '/notifications',            'EventController',       'getNotifications');
 $router->add('POST', '/notifications/mark-read',  'EventController',       'markRead');
 
+// USA Numbers — User-facing (Beta)
+$router->add('GET',  '/usa-numbers/available',   'UsaNumberController',      'getAvailable');
+$router->add('GET',  '/usa-numbers/mine',        'UsaNumberController',      'getMine');
+$router->add('POST', '/usa-numbers/purchase',    'UsaNumberController',      'purchase');
+$router->add('POST', '/usa-numbers/refresh-otp', 'UsaNumberController',      'refreshOtp');
+
+// USA Numbers — Admin
+$router->add('GET',    '/admin/usa-numbers',            'AdminUsaNumberController', 'getPaginatedNumbers');
+$router->add('POST',   '/admin/usa-numbers',            'AdminUsaNumberController', 'createNumber');
+$router->add('POST',   '/admin/usa-numbers/bulk',       'AdminUsaNumberController', 'bulkCreateNumbers');
+$router->add('POST',   '/admin/usa-numbers/update',     'AdminUsaNumberController', 'updateNumber');
+$router->add('POST',   '/admin/usa-numbers/update-url', 'AdminUsaNumberController', 'updateRedirectUrl');
+$router->add('DELETE', '/admin/usa-numbers',            'AdminUsaNumberController', 'deleteNumber');
+
 // Utils
 $router->add('GET',  '/utils/server-ip',      'UtilsController',       'getServerIp');
 
