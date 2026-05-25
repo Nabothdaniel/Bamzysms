@@ -2,17 +2,18 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import Topbar from '@/components/dashboard/Topbar';
+import DashboardPageShell from '@/components/dashboard/DashboardPageShell';
 import PinModal from '@/components/ui/PinModal';
 import { usaNumberService, UsaNumberItem, userService } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatMoney } from '@/lib/utils';
 import {
+  RiArrowRightLine,
   RiEyeLine,
   RiEyeOffLine,
   RiFileCopyLine,
   RiFlashlightLine,
+  RiHistoryLine,
   RiPriceTag3Line,
   RiRocketLine,
   RiTimeLine,
@@ -94,53 +95,79 @@ export default function UsaNumbersBetaPage() {
   };
 
   return (
-    <DashboardLayout>
-      <Topbar title="USA Numbers Beta" />
-      <main style={{ padding: '28px', maxWidth: 1180, margin: '0 auto' }}>
-        <div className="breadcrumb">
-          <Link href="/dashboard">Dashboard</Link>
-          <span>/</span>
-          <span>USA Numbers Beta</span>
-        </div>
+    <DashboardPageShell
+      title="USA Numbers"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'USA Numbers' },
+        { label: 'Beta' },
+      ]}
+      maxWidth={1200}
+      contentStyle={{ padding: '24px 20px 36px', maxWidth: 1200, margin: '0 auto' }}
+    >
+      <PinModal
+        isOpen={pinModalOpen}
+        onClose={() => {
+          setPinModalOpen(false);
+          setSelectedNumber(null);
+        }}
+        onSuccess={handlePinSuccess}
+        isLoading={pinLoading}
+        title={!user?.hasPin ? 'Set Your Transaction PIN' : 'Confirm USA Number Purchase'}
+        description={
+          !user?.hasPin
+            ? "You haven't set a transaction PIN yet. Create one to secure USA number purchases."
+            : `Enter your 4-digit PIN to buy ${selectedNumber?.phone_number || 'this number'} for ${formatMoney(selectedNumber?.sell_price || 0)}.`
+        }
+      />
 
-        <PinModal
-          isOpen={pinModalOpen}
-          onClose={() => {
-            setPinModalOpen(false);
-            setSelectedNumber(null);
-          }}
-          onSuccess={handlePinSuccess}
-          isLoading={pinLoading}
-          title={!user?.hasPin ? 'Set Your Transaction PIN' : 'Confirm USA Number Purchase'}
-          description={
-            !user?.hasPin
-              ? "You haven't set a transaction PIN yet. Create one to secure USA number purchases."
-              : `Enter your 4-digit PIN to buy ${selectedNumber?.phone_number || 'this number'} for ${formatMoney(selectedNumber?.sell_price || 0)}.`
-          }
-        />
-
-        <section className="hero-card">
-          <div>
-            <div className="hero-kicker">Beta Access</div>
-            <h1>Available USA Numbers, Ready To Buy</h1>
-            <p>
-              This beta keeps things simple: we show the current list of available numbers, you buy with your wallet
-              balance, and the OTP is fetched from the redirect link after purchase.
-            </p>
+      <section className="overview-card">
+        <div className="overview-copy">
+          <div className="hero-kicker">Premium access lane</div>
+          <div className="title-row">
+            <h1>USA Numbers</h1>
+            <span className="beta-pill">Beta</span>
+          </div>
+          <p>
+            Buy curated USA numbers with wallet balance, reveal OTP updates quickly, and keep recent purchases in a
+            cleaner workspace that matches the rest of your dashboard.
+          </p>
+          <div className="overview-actions">
             <div className="wallet-chip">
               <RiWalletLine size={16} />
               Wallet Balance: {formatMoney(user?.balance)}
             </div>
+            <Link href="/dashboard/user/numbers-history" className="inline-link">
+              Open full history <RiArrowRightLine size={15} />
+            </Link>
           </div>
+        </div>
 
-          <div className="hero-side">
-            <div className="hero-stat"><RiPriceTag3Line size={16} /> {available.length} available now</div>
-            <div className="hero-stat"><RiFlashlightLine size={16} /> {mine.length} purchased by you</div>
-            <div className="hero-side-title">Latest OTP</div>
-            <div className="hero-side-number">{lastPurchaseOtp?.phone || 'Your latest USA purchase will show here'}</div>
-            <div className="hero-side-otp">{lastPurchaseOtp?.otp || '------'}</div>
-          </div>
-        </section>
+        <div className="otp-spotlight">
+          <div className="spotlight-kicker">Latest OTP</div>
+          <div className="spotlight-number">{lastPurchaseOtp?.phone || 'Your next USA purchase appears here'}</div>
+          <div className="spotlight-otp">{lastPurchaseOtp?.otp || '------'}</div>
+          <div className="spotlight-note">Fresh codes surface here right after a successful purchase.</div>
+        </div>
+      </section>
+
+      <section className="summary-grid">
+        <article className="summary-card">
+          <div className="summary-icon primary"><RiPriceTag3Line size={20} /></div>
+          <div className="summary-label">Available now</div>
+          <div className="summary-value">{available.length}</div>
+        </article>
+        <article className="summary-card">
+          <div className="summary-icon emerald"><RiFlashlightLine size={20} /></div>
+          <div className="summary-label">Owned by you</div>
+          <div className="summary-value">{mine.length}</div>
+        </article>
+        <article className="summary-card">
+          <div className="summary-icon amber"><RiHistoryLine size={20} /></div>
+          <div className="summary-label">Purchase flow</div>
+          <div className="summary-caption">Buy with wallet, track OTP, revisit full history anytime.</div>
+        </article>
+      </section>
 
         <section className="market-shell">
           <div className="section-head">
@@ -242,74 +269,162 @@ export default function UsaNumbersBetaPage() {
         </section>
 
         <style jsx>{`
-          .hero-card {
+          .overview-card {
             display: grid;
-            grid-template-columns: 1.45fr 0.95fr;
-            gap: 22px;
-            padding: 28px;
-            border-radius: 26px;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr);
+            gap: 24px;
+            padding: 30px;
+            border-radius: 28px;
             border: 1px solid var(--color-border);
-            background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
-            box-shadow: 0 12px 36px rgba(15, 23, 42, 0.05);
+            background:
+              radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 28%),
+              linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06);
             margin-bottom: 24px;
           }
-          .hero-kicker, .section-kicker, .otp-label {
+          .overview-copy {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 18px;
+          }
+          .hero-kicker, .section-kicker, .otp-label, .spotlight-kicker, .summary-label {
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.12em;
             font-weight: 800;
             color: var(--color-primary);
           }
-          .hero-card h1, .section-head h2 {
-            margin: 8px 0 10px;
+          .title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
           }
-          .hero-card p {
+          .beta-pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 32px;
+            padding: 0 14px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.16) 0%, rgba(14, 165, 233, 0.18) 100%);
+            color: var(--color-primary);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid rgba(37, 99, 235, 0.16);
+          }
+          .overview-card h1, .section-head h2 {
+            margin: 8px 0 10px;
+            font-size: clamp(1.8rem, 3vw, 2.35rem);
+            line-height: 1.05;
+          }
+          .overview-card p {
             color: var(--color-text-faint);
             line-height: 1.7;
             max-width: 640px;
           }
-          .wallet-chip, .hero-stat, .country-chip, .price-tag, .btn-primary, .btn-secondary, .btn-ghost, .copy-btn {
+          .overview-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          .wallet-chip, .country-chip, .price-tag, .btn-primary, .btn-secondary, .btn-ghost, .copy-btn, .inline-link {
             display: inline-flex;
             align-items: center;
             gap: 8px;
           }
-          .wallet-chip, .hero-stat {
-            margin-top: 14px;
+          .wallet-chip {
             padding: 10px 14px;
             border-radius: 999px;
             background: var(--color-primary-dim);
             color: var(--color-primary);
             font-weight: 700;
           }
-          .hero-side {
+          .inline-link {
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: 999px;
+            text-decoration: none;
+            color: var(--color-text);
+            background: rgba(15, 23, 42, 0.04);
+            font-weight: 700;
+          }
+          .otp-spotlight {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
             justify-content: center;
-            padding: 22px;
-            border-radius: 20px;
-            background: rgba(37, 99, 235, 0.05);
+            padding: 24px;
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, rgba(14, 165, 233, 0.03) 100%);
+            border: 1px solid rgba(37, 99, 235, 0.10);
           }
-          .hero-side-title {
-            margin-top: 4px;
-            font-size: 0.78rem;
-            color: var(--color-text-faint);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 700;
-          }
-          .hero-side-number {
-            font-weight: 700;
+          .spotlight-number {
+            font-size: 1rem;
+            font-weight: 800;
             color: var(--color-text);
           }
-          .hero-side-otp, .mono-strong {
+          .spotlight-otp, .mono-strong {
             font-family: monospace;
             font-weight: 800;
             color: var(--color-primary);
-            font-size: 1rem;
+            font-size: 1.2rem;
+          }
+          .spotlight-note, .summary-caption {
+            color: var(--color-text-faint);
+            line-height: 1.7;
+            font-size: 0.9rem;
+          }
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 10px;
+          }
+          .summary-card {
+            background: var(--color-bg-2);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            padding: 22px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+          }
+          .summary-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+          }
+          .summary-icon.primary {
+            color: var(--color-primary);
+            background: var(--color-primary-dim);
+          }
+          .summary-icon.emerald {
+            color: #047857;
+            background: rgba(16, 185, 129, 0.10);
+          }
+          .summary-icon.amber {
+            color: #b45309;
+            background: rgba(245, 158, 11, 0.12);
+          }
+          .summary-value {
+            margin-top: 8px;
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: var(--color-text);
           }
           .market-shell, .history-shell {
             margin-top: 28px;
+            padding: 26px;
+            border-radius: 26px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-2);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
           }
           .section-head, .market-card-head, .owned-head, .owned-meta, .otp-inline {
             display: flex;
@@ -324,11 +439,11 @@ export default function UsaNumbersBetaPage() {
             margin-top: 18px;
           }
           .market-card, .owned-card {
-            border-radius: 20px;
+            border-radius: 22px;
             border: 1px solid var(--color-border);
             background: linear-gradient(180deg, #ffffff, #fbfdff);
-            padding: 20px;
-            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
+            padding: 22px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 18px rgba(15, 23, 42, 0.03);
           }
           .country-chip {
             padding: 6px 10px;
@@ -350,7 +465,7 @@ export default function UsaNumbersBetaPage() {
           }
           .price-tag {
             padding: 10px 12px;
-            border-radius: 14px;
+            border-radius: 16px;
             background: rgba(16, 185, 129, 0.08);
             color: #047857;
             font-weight: 800;
@@ -366,7 +481,7 @@ export default function UsaNumbersBetaPage() {
           }
           .btn-primary, .btn-secondary, .btn-ghost, .copy-btn {
             border: 1px solid transparent;
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 10px 14px;
             cursor: pointer;
             text-decoration: none;
@@ -413,7 +528,8 @@ export default function UsaNumbersBetaPage() {
             background: rgba(255, 255, 255, 0.65);
           }
           @media (max-width: 960px) {
-            .hero-card {
+            .overview-card,
+            .summary-grid {
               grid-template-columns: 1fr;
             }
             .section-head {
@@ -422,7 +538,6 @@ export default function UsaNumbersBetaPage() {
             }
           }
         `}</style>
-      </main>
-    </DashboardLayout>
+    </DashboardPageShell>
   );
 }

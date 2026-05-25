@@ -72,12 +72,27 @@ class Migrator {
 
         foreach ($statements as $statement) {
             if ($statement !== '') {
-                $this->db->exec($statement);
+                $this->executeStatement($statement);
             }
         }
 
         // Record it
-        $stmt = $this->db->prepare("INSERT INTO migrations (name) VALUES (?)");
+        $stmt = $this->db->prepare("INSERT IGNORE INTO migrations (name) VALUES (?)");
         $stmt->execute([$file]);
+    }
+
+    private function executeStatement(string $statement): void {
+        $stmt = $this->db->prepare($statement);
+        $stmt->execute();
+
+        do {
+            try {
+                $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                // Statements like SET / ALTER / PREPARE have no result rows.
+            }
+        } while ($stmt->nextRowset());
+
+        $stmt->closeCursor();
     }
 }

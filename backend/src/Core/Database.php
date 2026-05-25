@@ -7,6 +7,7 @@ use PDOException;
 
 class Database {
     private static $instance = null;
+    private static $migrationsChecked = false;
     private $pdo;
 
     private function buildDsn(array $config): string {
@@ -32,6 +33,7 @@ class Database {
             $this->pdo = new PDO($dsn, $config['user'], $config['pass'], array_merge($options, [
                 PDO::ATTR_PERSISTENT => (bool) ($config['persistent'] ?? false),
             ]));
+            $this->runAutoMigrations($config);
         } catch (PDOException $e) {
             header('HTTP/1.1 500 Internal Server Error');
             echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
@@ -48,5 +50,36 @@ class Database {
 
     public function getConnection() {
         return $this->pdo;
+    }
+
+    private function runAutoMigrations(array $config): void {
+        if (self::$migrationsChecked) {
+            return;
+        }
+
+        self::$migrationsChecked = true;
+
+        $shouldRun = filter_var($config['auto_run_migrations'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        if (!$shouldRun) {
+            return;
+        }
+
+        try {
+            $migrator = new Migrator($this->pdo);
+            $results = $migrator->migrate();
+
+            foreach ($results as $result) {
+                if (($result['status'] ?? '') === 'error') {
+                    error_log('[AUTO_MIGRATION_ERROR] ' . ($result['file'] ?? 'unknown') . ': ' . ($result['message'] ?? 'Unknown migration error'));
+                    return;
+                }
+            }
+
+            if (!empty($results)) {
+                error_log('[AUTO_MIGRATION] Applied ' . count($results) . ' migration(s).');
+            }
+        } catch (\Throwable $e) {
+            error_log('[AUTO_MIGRATION_FATAL] ' . $e->getMessage());
+        }
     }
 }

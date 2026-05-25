@@ -5350,3 +5350,11 @@ xÝþvÊâ]Þ._ÑÚt²E‹AYü€JµçX´ŒDn
 [2026-05-22 19:34:59] OUTBOUND REQUEST: https://smsbower.page/stubs/handler_api.php?action=getBalance&api_key=Wxh8jpx398LjVCCQh37KLP9CEoUV9RMZ
 [2026-05-22 19:34:59] RAW RESPONSE: ACCESS_BALANCE:0.08
 [2026-05-22 19:35:00] RAW RESPONSE: ACCESS_BALANCE:0.08
+[2026-05-24 14:41:52] OUTBOUND REQUEST: https://smsbower.page/stubs/handler_api.php?action=getBalance&api_key=Wxh8jpx398LjVCCQh37KLP9CEoUV9RMZ
+[2026-05-24 14:41:58] OUTBOUND REQUEST: https://smsbower.page/stubs/handler_api.php?action=getBalance&api_key=Wxh8jpx398LjVCCQh37KLP9CEoUV9RMZ
+[2026-05-24 14:42:03] RAW RESPONSE: ACCESS_BALANCE:0.08
+[2026-05-24 14:42:06] RAW RESPONSE: ACCESS_BALANCE:0.08
+[2026-05-24 14:42:20] OUTBOUND REQUEST: https://smsbower.page/stubs/handler_api.php?action=getBalance&api_key=Wxh8jpx398LjVCCQh37KLP9CEoUV9RMZ
+[2026-05-24 14:42:23] RAW RESPONSE: ACCESS_BALANCE:0.08
+[2026-05-24 14:42:38] OUTBOUND REQUEST: https://smsbower.page/stubs/handler_api.php?action=getBalance&api_key=Wxh8jpx398LjVCCQh37KLP9CEoUV9RMZ
+[2026-05-24 14:43:08] CURL ERROR (28)

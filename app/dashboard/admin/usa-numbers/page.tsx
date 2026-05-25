@@ -239,13 +239,21 @@ export default function AdminUsaNumbersPage() {
     <AdminLayout>
       <div className="admin-content" style={{ padding: '32px' }}>
         <section className="hero-card">
-          <div>
+          <div className="hero-copy">
             <div className="eyebrow">USA Number Operations</div>
-            <h1>USA Number Manager</h1>
+            <div className="headline-row">
+              <h1>USA Number Manager</h1>
+              <span className="hero-pill">Inventory Control</span>
+            </div>
             <p>
               Upload USA numbers one by one or in bulk, assign name and category, attach the OTP redirect link,
               and adjust pricing whenever stock changes.
             </p>
+            <div className="hero-notes">
+              <span>Structured uploads</span>
+              <span>Editable pricing</span>
+              <span>OTP redirect tracking</span>
+            </div>
           </div>
           <div className="hero-grid">
             <div className="mini-kpi"><RiPriceTag3Line size={18} /><span>{pagination.total} total rows</span></div>
@@ -473,7 +481,7 @@ export default function AdminUsaNumbersPage() {
             background: #fff;
             border: 1px solid var(--color-border);
             border-radius: 24px;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
           }
           .hero-card {
             display: grid;
@@ -481,6 +489,9 @@ export default function AdminUsaNumbersPage() {
             gap: 24px;
             padding: 28px 30px;
             margin-bottom: 24px;
+            background:
+              radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 26%),
+              linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
           }
           .hero-grid, .stats-grid, .workspace-grid {
             display: grid;
@@ -488,6 +499,47 @@ export default function AdminUsaNumbersPage() {
           }
           .hero-grid {
             align-content: center;
+          }
+          .hero-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+          }
+          .headline-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+          }
+          .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 32px;
+            padding: 0 14px;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.10);
+            color: var(--color-primary);
+            border: 1px solid rgba(37, 99, 235, 0.12);
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          .hero-notes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+          .hero-notes span {
+            display: inline-flex;
+            align-items: center;
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.04);
+            color: var(--color-text);
+            font-size: 0.78rem;
+            font-weight: 700;
           }
           .stats-grid {
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -505,10 +557,11 @@ export default function AdminUsaNumbersPage() {
             align-items: center;
             gap: 10px;
             padding: 12px 14px;
-            border-radius: 16px;
+            border-radius: 18px;
             background: rgba(37, 99, 235, 0.08);
             color: var(--color-text);
             font-weight: 700;
+            border: 1px solid rgba(37, 99, 235, 0.08);
           }
           .panel-head, .inventory-topbar, .pager, .action-stack {
             display: flex;
@@ -539,6 +592,9 @@ export default function AdminUsaNumbersPage() {
             margin-top: 8px;
             font-weight: 800;
           }
+          .stat-card {
+            background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+          }
           .stack, .price-stack, .action-stack {
             flex-direction: column;
           }
@@ -549,10 +605,11 @@ export default function AdminUsaNumbersPage() {
           .form-input, .toolbar-input, .table-input {
             width: 100%;
             border: 1px solid var(--color-border);
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 12px 14px;
             background: #fff;
             color: var(--color-text);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.84);
           }
           .form-textarea, .table-textarea {
             resize: vertical;
@@ -563,20 +620,31 @@ export default function AdminUsaNumbersPage() {
           }
           .inventory-card {
             overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
           }
           .table-shell {
             overflow-x: auto;
             margin-top: 18px;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            border-radius: 20px;
           }
           .inventory-table {
             width: 100%;
             border-collapse: collapse;
+            background: #fff;
           }
           .inventory-table th, .inventory-table td {
             padding: 14px 12px;
             border-top: 1px solid var(--color-border);
             vertical-align: top;
             text-align: left;
+          }
+          .inventory-table th {
+            background: rgba(15, 23, 42, 0.025);
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-text-faint);
           }
           .number-cell {
             min-width: 220px;
@@ -614,7 +682,7 @@ export default function AdminUsaNumbersPage() {
             align-items: center;
             justify-content: center;
             gap: 8px;
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 11px 14px;
             border: 1px solid transparent;
             cursor: pointer;

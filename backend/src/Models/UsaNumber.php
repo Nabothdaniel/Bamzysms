@@ -8,9 +8,11 @@ use RuntimeException;
 
 class UsaNumber {
     private $db;
+    private static $schemaEnsured = false;
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
+        $this->ensureSchema();
     }
 
     /* ------------------------------------------------------------------ */
@@ -362,5 +364,60 @@ class UsaNumber {
     private function normalizeText(string $value, string $fallback): string {
         $clean = trim($value);
         return $clean !== '' ? $clean : $fallback;
+    }
+
+    private function ensureSchema(): void {
+        if (self::$schemaEnsured) {
+            return;
+        }
+
+        $this->db->exec("
+            CREATE TABLE IF NOT EXISTS usa_numbers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                phone_number VARCHAR(30) NOT NULL,
+                service_name VARCHAR(120) NOT NULL DEFAULT 'USA Number',
+                category VARCHAR(120) NOT NULL DEFAULT 'WhatsApp',
+                redirect_url TEXT NOT NULL,
+                sell_price DECIMAL(10,2) NOT NULL,
+                cost_price DECIMAL(10,2) DEFAULT 0.00,
+                notes VARCHAR(255) NULL,
+                otp_code TEXT NULL,
+                uploaded_by INT NOT NULL,
+                sold_to INT NULL,
+                status ENUM('available', 'sold', 'cancelled') DEFAULT 'available',
+                sold_at DATETIME NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_usa_phone (phone_number),
+                KEY idx_usa_status (status),
+                KEY idx_usa_sold_to (sold_to),
+                CONSTRAINT fk_usa_numbers_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id),
+                CONSTRAINT fk_usa_numbers_sold_to FOREIGN KEY (sold_to) REFERENCES users(id)
+            )
+        ");
+
+        $this->ensureColumn(
+            'service_name',
+            "ALTER TABLE usa_numbers ADD COLUMN service_name VARCHAR(120) NOT NULL DEFAULT 'USA Number' AFTER phone_number"
+        );
+        $this->ensureColumn(
+            'category',
+            "ALTER TABLE usa_numbers ADD COLUMN category VARCHAR(120) NOT NULL DEFAULT 'WhatsApp' AFTER service_name"
+        );
+        $this->ensureColumn(
+            'redirect_url',
+            "ALTER TABLE usa_numbers ADD COLUMN redirect_url TEXT NOT NULL AFTER category"
+        );
+
+        self::$schemaEnsured = true;
+    }
+
+    private function ensureColumn(string $column, string $alterSql): void {
+        $stmt = $this->db->prepare("SHOW COLUMNS FROM usa_numbers LIKE ?");
+        $stmt->execute([$column]);
+
+        if (!$stmt->fetch(PDO::FETCH_ASSOC)) {
+            $this->db->exec($alterSql);
+        }
     }
 }
