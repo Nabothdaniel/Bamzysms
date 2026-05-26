@@ -4,11 +4,19 @@ import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/appStore';
 
 const getApiUrl = () => {
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://127.0.0.1:8000';
+  // Prefer build-time env, then a runtime override, then derive from origin.
+  const buildEnv = (process.env.NEXT_PUBLIC_API_URL || '').replace(/["';]/g, '').trim();
+  if (buildEnv) return buildEnv;
+
+  if (typeof window !== 'undefined') {
+    const runtime = (window as any)?.__NEXT_PUBLIC_API_URL;
+    if (runtime && String(runtime).trim()) return String(runtime).replace(/["';]/g, '').trim();
+
+    const origin = window.location?.origin || '';
+    if (origin) return origin.replace(/\/$/, '') + '/api';
   }
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  return envUrl.endsWith('/api') ? envUrl : (envUrl ? `${envUrl}/api` : '/api');
+
+  return 'https://bamzysms.com/api';
 };
 
 const API_URL = getApiUrl();

@@ -58,8 +58,12 @@ export default function NumbersHistoryPage() {
       } else {
         setItems(fetchedItems);
       }
-      setTotal(res?.meta?.total || 0);
-      setHasMore(res?.meta?.hasMore || false);
+      const meta = res?.meta;
+      const totalCount = meta?.total ?? 0;
+      const currentOffset = meta?.offset ?? newOffset;
+      const currentLimit = meta?.limit ?? PAGE_SIZE;
+      setTotal(totalCount);
+      setHasMore(totalCount > currentOffset + currentLimit);
       setOffset(newOffset);
     } catch (err) {
       console.error('Failed to fetch history', err);

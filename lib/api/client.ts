@@ -1,10 +1,27 @@
 import axios from 'axios';
 
 const getApiUrl = () => {
-  // Use env variable if present, otherwise default to local server for development
-  const url = process.env.NEXT_PUBLIC_API_URL || 'https://bamzysms.com/api';
-  // Strip quotes and semicolons
-  return url.replace(/["';]/g, '');
+  // 1. Prefer build-time NEXT_PUBLIC_API_URL
+  const buildEnv = (process.env.NEXT_PUBLIC_API_URL || '').replace(/["';]/g, '').trim();
+  if (buildEnv) return buildEnv;
+
+  // 2. Allow a runtime override if the host injects one (e.g. hosting panels)
+  if (typeof window !== 'undefined') {
+    // Common pattern: hosting or server can expose a runtime var
+    // e.g. window.__NEXT_PUBLIC_API_URL
+    const runtime = (window as any)?.__NEXT_PUBLIC_API_URL;
+    if (runtime && String(runtime).trim()) return String(runtime).replace(/["';]/g, '').trim();
+
+    // 3. If running in the browser, derive from current origin when sensible
+    const origin = window.location?.origin || '';
+    if (origin && !origin.includes('127.0.0.1') && !origin.includes('localhost')) {
+      return origin.replace(/\/$/, '') + '/api';
+    }
+  }
+
+  // 4. Final fallback (should be rare) — use canonical production API
+  console.warn('Using fallback API URL; set NEXT_PUBLIC_API_URL to avoid this.');
+  return 'https://bamzysms.com/api';
 };
 
 const API_URL = getApiUrl();
