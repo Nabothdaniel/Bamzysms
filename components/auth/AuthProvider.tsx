@@ -12,7 +12,7 @@ import { useRealtime } from '@/hooks/useRealtime';
  * profile refresh so local state stays in sync with the database.
  */
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { login, setUser, hasHydrated } = useAppStore();
+  const { setUser, hasHydrated } = useAppStore();
   const hasFetchedRef = useRef(false); // prevent double-fetch in StrictMode / dep loops
 
   // Initialize custom real-time event stream
@@ -34,22 +34,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     if (!token) return; // No token → nothing to restore
 
-    userService
-      .getProfile()
-      .then((res: any) => {
-        // Merge fresh server data into the store without touching the token
-        if (res?.data) {
-          setUser(res.data);
+    const restoreSession = async () => {
+      try {
+        const response = await userService.getProfile();
+        if (response.data) {
+          setUser(response.data);
         }
-      })
-      .catch((err: any) => {
-        // IMPORTANT: Do NOT call logout() here on network/CORS/timeout errors.
-        // The global axios interceptor in client.ts already handles 401 by
-        // clearing tokens and redirecting. For every other error (server down,
-        // slow start, CORS during dev) we silently keep the persisted state —
-        // the user's JWT is still valid and they should stay logged in.
-        console.warn('[AuthProvider] Background profile refresh failed (non-critical):', err?.message);
-      });
+      } catch {
+        // The API client already handles invalid-token logout.
+        // For non-auth failures we keep the persisted session state.
+      }
+    };
+
+    void restoreSession();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated]); // intentionally omit login/setUser/user — they're stable or would loop
 

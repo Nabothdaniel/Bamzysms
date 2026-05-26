@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import Link from 'next/link';
 import { RiEyeLine, RiEyeOffLine, RiLockLine } from 'react-icons/ri';
 
@@ -15,6 +15,7 @@ type AuthPasswordFieldProps = {
     href: string;
     label: string;
   };
+  autoComplete?: string;
 };
 
 export default function AuthPasswordField({
@@ -27,11 +28,14 @@ export default function AuthPasswordField({
   onToggleVisibility,
   required = false,
   auxiliaryLink,
+  autoComplete,
 }: AuthPasswordFieldProps) {
+  const inputId = useId();
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</label>
+        <label htmlFor={inputId} style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</label>
         {auxiliaryLink ? (
           <Link
             href={auxiliaryLink.href}
@@ -55,6 +59,7 @@ export default function AuthPasswordField({
           <RiLockLine size={18} />
         </span>
         <input
+          id={inputId}
           name={name}
           type={visible ? 'text' : 'password'}
           className="input-field"
@@ -62,11 +67,14 @@ export default function AuthPasswordField({
           value={value}
           onChange={onChange}
           required={required}
+          autoComplete={autoComplete}
           style={{ paddingLeft: 44, paddingRight: 44 }}
         />
         <button
           type="button"
           onClick={onToggleVisibility}
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
           style={{
             position: 'absolute',
             right: 14,

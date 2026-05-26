@@ -191,7 +191,7 @@ class UsaNumber {
 
     public function getOwnedByUser(int $userId): array {
         $stmt = $this->db->prepare("
-            SELECT id, phone_number, service_name, category, sell_price, notes, otp_code, sold_at, created_at
+            SELECT id, phone_number, service_name, category, redirect_url, sell_price, notes, otp_code, sold_at, created_at
             FROM usa_numbers
             WHERE sold_to = ?
             ORDER BY sold_at DESC, created_at DESC
@@ -265,21 +265,16 @@ class UsaNumber {
                 throw new RuntimeException('This USA number is no longer available.');
             }
 
-            // Fetch OTP from redirect URL
-            $otp = $this->fetchOtpFromUrl($number['redirect_url'] ?? '');
-
-            // Store fetched OTP
-            if ($otp !== '') {
-                $this->db->prepare("UPDATE usa_numbers SET otp_code = ? WHERE id = ?")->execute([$otp, $numberId]);
-            }
-
             $this->db->commit();
 
             return [
                 'id' => (int)$number['id'],
                 'phone_number' => $number['phone_number'],
+                'service_name' => $number['service_name'],
+                'category' => $number['category'],
+                'redirect_url' => $number['redirect_url'],
                 'sell_price' => $price,
-                'otp_code' => $otp,
+                'otp_code' => '',
                 'new_balance' => $balance - $price,
             ];
         } catch (\Throwable $e) {

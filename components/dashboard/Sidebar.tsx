@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/user/fund-wallet', icon: <RiWalletLine size={18} />, label: 'Fund Wallet' },
   { href: 'https://Bamzystore.org/', icon: <RiShoppingBag3Line size={18} />, label: 'Buy Logs' },
   { href: '/dashboard/user/usa-numbers', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
-  { href: '/dashboard/user/usa-numbers-beta', icon: <RiPhoneLine size={18} />, label: 'USA Numbers Beta' },
+  { href: '/dashboard/user/usa-numbers-beta', icon: <RiPhoneLine size={18} />, label: 'USA Numbers', badge: 'Beta' },
   { href: '/dashboard/user/all-countries', icon: <RiGlobalLine size={18} />, label: 'All Countries Numbers' },
   { href: '/dashboard/user/telegram-numbers', icon: <RiSendPlaneLine size={18} />, label: 'Telegram Numbers' },
   { href: '/dashboard/user/refer', icon: <RiUserSharedLine size={18} />, label: 'Refer & Earn' },
@@ -96,7 +96,29 @@ export default function Sidebar() {
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none', position: 'relative' }} onClick={handleNavClick}>
               <div className={`sidebar-item ${pathname === item.href ? 'active' : ''}`}>
                 {item.icon}
-                {item.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: 24,
+                      padding: '0 10px',
+                      borderRadius: 999,
+                      background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.22))',
+                      color: 'var(--color-primary)',
+                      border: '1px solid rgba(37, 99, 235, 0.14)',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
+                    }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </span>
                 {item.href === '/dashboard/user/security' && user && !user.recovery_key_saved && (
                   <div style={{
                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',

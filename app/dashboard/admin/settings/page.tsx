@@ -16,10 +16,18 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (!hasHydrated || user?.role !== 'admin') return;
 
-    adminService.getSettings()
-      .then(res => setSettings(res.data))
-      .catch(() => addToast('Failed to load settings', 'error'))
-      .finally(() => setLoading(false));
+    const loadSettings = async () => {
+      try {
+        const response = await adminService.getSettings();
+        setSettings(response.data);
+      } catch {
+        addToast('Failed to load settings', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadSettings();
   }, [addToast, hasHydrated, user?.role]);
 
   const handleUpdate = async (e: React.FormEvent) => {

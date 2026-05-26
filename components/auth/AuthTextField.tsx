@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import type { IconType } from 'react-icons';
 
 type AuthTextFieldProps = {
@@ -13,6 +13,10 @@ type AuthTextFieldProps = {
   maxLength?: number;
   helperText?: string;
   inputStyle?: React.CSSProperties;
+  autoComplete?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  autoCapitalize?: string;
+  spellCheck?: boolean;
 };
 
 export default function AuthTextField({
@@ -27,10 +31,20 @@ export default function AuthTextField({
   maxLength,
   helperText,
   inputStyle,
+  autoComplete,
+  inputMode,
+  autoCapitalize = 'none',
+  spellCheck = false,
 }: AuthTextFieldProps) {
+  const inputId = useId();
+  const helperTextId = helperText ? `${inputId}-helper` : undefined;
+
   return (
     <div>
-      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>
+      <label
+        htmlFor={inputId}
+        style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}
+      >
         {label}
       </label>
       <div style={{ position: 'relative' }}>
@@ -47,6 +61,7 @@ export default function AuthTextField({
           <Icon size={18} />
         </span>
         <input
+          id={inputId}
           name={name}
           type={type}
           className="input-field"
@@ -55,11 +70,19 @@ export default function AuthTextField({
           onChange={onChange}
           required={required}
           maxLength={maxLength}
+          autoComplete={autoComplete}
+          inputMode={inputMode}
+          autoCapitalize={autoCapitalize}
+          spellCheck={spellCheck}
+          aria-describedby={helperTextId}
           style={{ paddingLeft: 44, ...inputStyle }}
         />
       </div>
       {helperText ? (
-        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: 8 }}>
+        <p
+          id={helperTextId}
+          style={{ fontSize: '0.75rem', color: 'var(--color-text-faint)', marginTop: 8 }}
+        >
           {helperText}
         </p>
       ) : null}

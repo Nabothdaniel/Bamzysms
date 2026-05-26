@@ -70,6 +70,7 @@ export default function LoginPage() {
             onChange={handleChange}
             placeholder="Enter your username"
             icon={RiUserLine}
+            autoComplete="username"
           />
 
           <AuthPasswordField
@@ -81,6 +82,7 @@ export default function LoginPage() {
             visible={showPass}
             onToggleVisibility={() => setShowPass((value) => !value)}
             auxiliaryLink={{ href: '/forgot-password', label: 'Forgot?' }}
+            autoComplete="current-password"
           />
 
           <button type="submit" className="btn-primary"

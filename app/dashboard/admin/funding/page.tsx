@@ -9,9 +9,18 @@ import UserAvatar from '@/components/ui/UserAvatar';
 import { RiExchangeFundsLine, RiTimeLine } from 'react-icons/ri';
 import AdminPagination from '@/components/admin/AdminPagination';
 
+type FundingTransaction = {
+  id: number;
+  amount: number | string;
+  description: string;
+  created_at: string;
+  user_name?: string;
+  user_username?: string;
+};
+
 export default function AdminFundingPage() {
   const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<FundingTransaction[]>([]);
   const [search, setSearch] = useState('');
   const { addToast } = useAppStore();
 
@@ -21,17 +30,23 @@ export default function AdminFundingPage() {
   const limit = 20;
 
   useEffect(() => {
-    setLoading(true);
-    adminService.getTransactions({ page, limit, type: 'credit' })
-      .then((res: any) => {
-        setTransactions(res.data || []);
-        if (res.pagination) {
-          setTotalPages(res.pagination.pages);
-          setTotalItems(res.pagination.total);
+    const loadTransactions = async () => {
+      setLoading(true);
+      try {
+        const response = await adminService.getTransactions({ page, limit, type: 'credit' });
+        setTransactions((response.data || []) as FundingTransaction[]);
+        if (response.pagination) {
+          setTotalPages(response.pagination.pages);
+          setTotalItems(response.pagination.total);
         }
-      })
-      .catch(err => addToast('Failed to load funding history', 'error'))
-      .finally(() => setLoading(false));
+      } catch {
+        addToast('Failed to load funding history', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadTransactions();
   }, [addToast, page]);
 
 

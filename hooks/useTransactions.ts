@@ -6,25 +6,34 @@ import { Transaction } from '@/types';
 
 export function useTransactions(filter?: (transaction: Transaction) => boolean) {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     let isMounted = true;
 
-    userService
-      .getTransactions()
-      .then((response) => {
-        if (!isMounted) return;
+    const loadTransactions = async () => {
+      try {
+        const response = await userService.getTransactions();
+        if (!isMounted) {
+          return;
+        }
 
         const nextTransactions = filter ? response.data.filter(filter) : response.data;
         setTransactions(nextTransactions);
-      })
-      .catch((error) => console.error('Failed to fetch transactions', error))
-      .finally(() => {
+        setError(null);
+      } catch {
+        if (isMounted) {
+          setError('Failed to fetch transactions.');
+        }
+      } finally {
         if (isMounted) {
           setLoading(false);
         }
-      });
+      }
+    };
+
+    void loadTransactions();
 
     return () => {
       isMounted = false;
@@ -32,6 +41,7 @@ export function useTransactions(filter?: (transaction: Transaction) => boolean) 
   }, [filter]);
 
   return {
+    error,
     loading,
     transactions,
   };

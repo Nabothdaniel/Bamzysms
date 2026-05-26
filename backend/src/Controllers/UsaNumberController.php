@@ -69,12 +69,12 @@ class UsaNumberController extends Controller {
 
             $this->eventModel->log($userId, 'notification', [
                 'type'    => 'success',
-                'message' => "USA number {$purchase['phone_number']} purchased — OTP fetched automatically.",
+                'message' => "USA number {$purchase['phone_number']} purchased. Open the service, enter the number, then come back to fetch your code.",
             ]);
 
             return $this->json([
                 'status'  => 'success',
-                'message' => 'USA number purchased — OTP retrieved.',
+                'message' => 'USA number purchased successfully.',
                 'data'    => $purchase,
             ]);
         } catch (\Throwable $e) {

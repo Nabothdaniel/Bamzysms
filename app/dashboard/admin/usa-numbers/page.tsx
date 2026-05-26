@@ -22,7 +22,6 @@ type UsaDraft = {
   category: string;
   redirect_url: string;
   sell_price: string;
-  cost_price: string;
   notes: string;
 };
 
@@ -38,7 +37,6 @@ function parseBulkRows(input: string) {
         service_name = 'USA Number',
         category = 'WhatsApp',
         sell_price = '',
-        cost_price = '',
         redirect_url = '',
         ...rest
       ] = parts;
@@ -48,7 +46,6 @@ function parseBulkRows(input: string) {
         service_name,
         category,
         sell_price: Number(sell_price),
-        cost_price: Number(cost_price || 0),
         redirect_url,
         notes: rest.join(', '),
       };
@@ -76,7 +73,6 @@ export default function AdminUsaNumbersPage() {
     category: 'WhatsApp',
     redirect_url: '',
     sell_price: '',
-    cost_price: '',
     notes: '',
   });
   const [bulkText, setBulkText] = useState('');
@@ -101,7 +97,6 @@ export default function AdminUsaNumbersPage() {
             category: item.category || 'WhatsApp',
             redirect_url: item.redirect_url || '',
             sell_price: String(item.sell_price ?? ''),
-            cost_price: String(item.cost_price ?? ''),
             notes: item.notes || '',
           };
         }
@@ -135,7 +130,6 @@ export default function AdminUsaNumbersPage() {
         category: prev[numberId]?.category || 'WhatsApp',
         redirect_url: prev[numberId]?.redirect_url || '',
         sell_price: prev[numberId]?.sell_price || '',
-        cost_price: prev[numberId]?.cost_price || '',
         notes: prev[numberId]?.notes || '',
         [key]: value,
       },
@@ -152,7 +146,6 @@ export default function AdminUsaNumbersPage() {
         category: singleForm.category,
         redirect_url: singleForm.redirect_url,
         sell_price: Number(singleForm.sell_price),
-        cost_price: Number(singleForm.cost_price || 0),
         notes: singleForm.notes,
       });
       addToast('USA number uploaded', 'success');
@@ -162,7 +155,6 @@ export default function AdminUsaNumbersPage() {
         category: 'WhatsApp',
         redirect_url: '',
         sell_price: '',
-        cost_price: '',
         notes: '',
       });
       fetchNumbers(1, search, status);
@@ -177,7 +169,7 @@ export default function AdminUsaNumbersPage() {
     e.preventDefault();
     const rows = parseBulkRows(bulkText);
     if (rows.length === 0) {
-      addToast('Add at least one CSV row first', 'error');
+      addToast('Add at least one row first', 'error');
       return;
     }
 
@@ -210,7 +202,6 @@ export default function AdminUsaNumbersPage() {
         category: draft.category,
         redirect_url: draft.redirect_url,
         sell_price: Number(draft.sell_price),
-        cost_price: Number(draft.cost_price || 0),
         notes: draft.notes,
       });
       addToast('USA number updated', 'success');
@@ -237,28 +228,29 @@ export default function AdminUsaNumbersPage() {
 
   return (
     <AdminLayout>
-      <div className="admin-content" style={{ padding: '32px' }}>
+      <div className="admin-content">
         <section className="hero-card">
           <div className="hero-copy">
             <div className="eyebrow">USA Number Operations</div>
             <div className="headline-row">
               <h1>USA Number Manager</h1>
-              <span className="hero-pill">Inventory Control</span>
+              <span className="hero-pill">Clean Upload Flow</span>
             </div>
             <p>
-              Upload USA numbers one by one or in bulk, assign name and category, attach the OTP redirect link,
-              and adjust pricing whenever stock changes.
+              Keep this page simple: one selling price, one redirect link, and a roomy workspace for uploading,
+              checking, and correcting USA number stock.
             </p>
             <div className="hero-notes">
-              <span>Structured uploads</span>
-              <span>Editable pricing</span>
-              <span>OTP redirect tracking</span>
+              <span>One price only</span>
+              <span>Step-by-step upload</span>
+              <span>Easy inventory edits</span>
             </div>
           </div>
+
           <div className="hero-grid">
             <div className="mini-kpi"><RiPriceTag3Line size={18} /><span>{pagination.total} total rows</span></div>
             <div className="mini-kpi"><RiFlashlightLine size={18} /><span>{stats.available} ready to sell</span></div>
-            <div className="mini-kpi"><RiLinkM size={18} /><span>{stats.linked} with OTP links</span></div>
+            <div className="mini-kpi"><RiLinkM size={18} /><span>{stats.linked} with links</span></div>
           </div>
         </section>
 
@@ -272,33 +264,100 @@ export default function AdminUsaNumbersPage() {
             <div className="stat-value">{stats.sold}</div>
           </article>
           <article className="stat-card">
-            <div className="stat-label">Average Price</div>
-            <div className="stat-value">{formatMoney(items.length ? items.reduce((sum, item) => sum + Number(item.sell_price || 0), 0) / items.length : 0)}</div>
+            <div className="stat-label">Average sell price</div>
+            <div className="stat-value">
+              {formatMoney(items.length ? items.reduce((sum, item) => sum + Number(item.sell_price || 0), 0) / items.length : 0)}
+            </div>
           </article>
         </section>
 
-        <section className="workspace-grid">
+        <section className="flow-shell">
           <article className="workspace-card">
             <div className="panel-head">
               <div>
-                <div className="panel-kicker">Single Upload</div>
+                <div className="panel-kicker">Step 1</div>
                 <h2>Add one USA number</h2>
+                <p className="panel-copy">Fill the essentials only: phone, service, category, selling price, redirect link, and note.</p>
               </div>
-              <div className="panel-badge"><RiUploadCloud2Line size={16} /> Instant</div>
+              <div className="panel-badge"><RiUploadCloud2Line size={16} /> Single Upload</div>
             </div>
 
             <form onSubmit={handleSingleSubmit} className="stack">
-              <input value={singleForm.phone_number} onChange={(e) => setSingleForm((s) => ({ ...s, phone_number: e.target.value }))} placeholder="Phone number" className="form-input" />
-              <div className="split">
-                <input value={singleForm.service_name} onChange={(e) => setSingleForm((s) => ({ ...s, service_name: e.target.value }))} placeholder="Name" className="form-input" />
-                <input value={singleForm.category} onChange={(e) => setSingleForm((s) => ({ ...s, category: e.target.value }))} placeholder="Category" className="form-input" />
+              <div className="field-grid wide">
+                <label className="field">
+                  <span className="field-label">Phone number</span>
+                  <input
+                    value={singleForm.phone_number}
+                    onChange={(e) => setSingleForm((s) => ({ ...s, phone_number: e.target.value }))}
+                    placeholder="+12025550123"
+                    className="form-input"
+                    type="tel"
+                    autoComplete="off"
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field-label">Sell price</span>
+                  <input
+                    value={singleForm.sell_price}
+                    onChange={(e) => setSingleForm((s) => ({ ...s, sell_price: e.target.value }))}
+                    placeholder="4200"
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                  />
+                </label>
               </div>
-              <input value={singleForm.redirect_url} onChange={(e) => setSingleForm((s) => ({ ...s, redirect_url: e.target.value }))} placeholder="Redirect URL for OTP query" className="form-input" />
-              <div className="split">
-                <input value={singleForm.sell_price} onChange={(e) => setSingleForm((s) => ({ ...s, sell_price: e.target.value }))} placeholder="Sell price" type="number" min="0" step="0.01" className="form-input" />
-                <input value={singleForm.cost_price} onChange={(e) => setSingleForm((s) => ({ ...s, cost_price: e.target.value }))} placeholder="Cost price" type="number" min="0" step="0.01" className="form-input" />
+
+              <div className="field-grid">
+                <label className="field">
+                  <span className="field-label">Service name</span>
+                  <input
+                    value={singleForm.service_name}
+                    onChange={(e) => setSingleForm((s) => ({ ...s, service_name: e.target.value }))}
+                    placeholder="WhatsApp Fresh"
+                    className="form-input"
+                    autoComplete="off"
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field-label">Category</span>
+                  <input
+                    value={singleForm.category}
+                    onChange={(e) => setSingleForm((s) => ({ ...s, category: e.target.value }))}
+                    placeholder="WhatsApp"
+                    className="form-input"
+                    autoComplete="off"
+                  />
+                </label>
               </div>
-              <textarea value={singleForm.notes} onChange={(e) => setSingleForm((s) => ({ ...s, notes: e.target.value }))} placeholder="Notes" className="form-input form-textarea" rows={4} />
+
+              <label className="field">
+                <span className="field-label">Redirect link</span>
+                <input
+                  value={singleForm.redirect_url}
+                  onChange={(e) => setSingleForm((s) => ({ ...s, redirect_url: e.target.value }))}
+                  placeholder="https://example.com/otp/123"
+                  className="form-input"
+                  type="url"
+                  autoComplete="off"
+                />
+                <span className="field-hint">This is the link the system checks when the user comes back for the code.</span>
+              </label>
+
+              <label className="field">
+                <span className="field-label">Internal note</span>
+                <textarea
+                  value={singleForm.notes}
+                  onChange={(e) => setSingleForm((s) => ({ ...s, notes: e.target.value }))}
+                  placeholder="Fast stock, aged account, or any reminder for the team"
+                  className="form-input form-textarea"
+                  rows={4}
+                />
+              </label>
+
               <button className="btn-primary panel-btn" type="submit" disabled={submittingSingle}>
                 <RiSave3Line size={16} />
                 {submittingSingle ? 'Uploading...' : 'Upload USA Number'}
@@ -309,24 +368,30 @@ export default function AdminUsaNumbersPage() {
           <article className="workspace-card">
             <div className="panel-head">
               <div>
-                <div className="panel-kicker">Bulk Upload</div>
-                <h2>Paste many rows</h2>
+                <div className="panel-kicker">Step 2</div>
+                <h2>Paste bulk rows</h2>
+                <p className="panel-copy">Use one simple line format so the page stays clean and fast to review.</p>
               </div>
-              <div className="panel-badge"><RiTableLine size={16} /> CSV Rows</div>
+              <div className="panel-badge"><RiTableLine size={16} /> Bulk Upload</div>
             </div>
 
-            <div className="bulk-hint">
-              Format each line as `phone_number,name,category,sell_price,cost_price,redirect_url,notes`
+            <div className="bulk-guide">
+              <span className="bulk-guide-label">Row format</span>
+              <code>phone_number,name,category,sell_price,redirect_url,notes</code>
             </div>
 
             <form onSubmit={handleBulkSubmit} className="stack">
-              <textarea
-                value={bulkText}
-                onChange={(e) => setBulkText(e.target.value)}
-                placeholder={'+12025550123,WhatsApp Fresh,WhatsApp,4200,3000,https://example.com/otp/123,fast stock\n+12025550124,WhatsApp Aged,WhatsApp,4500,3200,https://example.com/otp/124,aged account'}
-                className="form-input form-textarea bulk-area"
-                rows={12}
-              />
+              <label className="field">
+                <span className="field-label">Rows</span>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={'+12025550123,WhatsApp Fresh,WhatsApp,4200,https://example.com/otp/123,fast stock\n+12025550124,WhatsApp Aged,WhatsApp,4500,https://example.com/otp/124,aged account'}
+                  className="form-input form-textarea bulk-area"
+                  rows={11}
+                />
+              </label>
+
               <button className="btn-primary panel-btn" type="submit" disabled={submittingBulk}>
                 <RiUploadCloud2Line size={16} />
                 {submittingBulk ? 'Uploading...' : 'Upload Bulk Rows'}
@@ -338,8 +403,9 @@ export default function AdminUsaNumbersPage() {
         <section className="workspace-card inventory-card">
           <div className="inventory-topbar">
             <div>
-              <div className="panel-kicker">Live Inventory</div>
-              <h2>USA Numbers</h2>
+              <div className="panel-kicker">Step 3</div>
+              <h2>Review inventory</h2>
+              <p className="panel-copy">Search, fix, and save inventory rows without extra clutter.</p>
             </div>
 
             <form
@@ -349,10 +415,16 @@ export default function AdminUsaNumbersPage() {
                 fetchNumbers(1, search, status);
               }}
             >
-              <div className="search-shell">
+              <label className="search-shell">
                 <RiSearchLine size={16} />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by phone, name, category, note" className="toolbar-input" />
-              </div>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by phone, name, category, note"
+                  className="toolbar-input"
+                  type="search"
+                />
+              </label>
 
               <select value={status} onChange={(e) => setStatus(e.target.value)} className="toolbar-input toolbar-select">
                 <option value="">All statuses</option>
@@ -361,7 +433,9 @@ export default function AdminUsaNumbersPage() {
                 <option value="cancelled">Cancelled</option>
               </select>
 
-              <button className="btn-secondary" onClick={() => fetchNumbers(1, search, status)} type="button">Apply</button>
+              <button className="btn-secondary toolbar-btn" onClick={() => fetchNumbers(1, search, status)} type="button">
+                Apply
+              </button>
             </form>
           </div>
 
@@ -370,10 +444,10 @@ export default function AdminUsaNumbersPage() {
               <thead>
                 <tr>
                   <th>Number</th>
-                  <th>Name</th>
+                  <th>Service</th>
                   <th>Category</th>
-                  <th>Pricing</th>
-                  <th>OTP Link</th>
+                  <th>Sell Price</th>
+                  <th>Redirect Link</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -415,26 +489,16 @@ export default function AdminUsaNumbersPage() {
                           className="table-input"
                         />
                       </td>
-                      <td>
-                        <div className="price-stack">
-                          <input
-                            value={draft?.sell_price || ''}
-                            onChange={(e) => updateDraft(item.id, 'sell_price', e.target.value)}
-                            className="table-input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                          />
-                          <input
-                            value={draft?.cost_price || ''}
-                            onChange={(e) => updateDraft(item.id, 'cost_price', e.target.value)}
-                            className="table-input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                          />
-                          <small>{formatMoney(Number(item.sell_price || 0))} current</small>
-                        </div>
+                      <td className="price-cell">
+                        <input
+                          value={draft?.sell_price || ''}
+                          onChange={(e) => updateDraft(item.id, 'sell_price', e.target.value)}
+                          className="table-input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                        />
+                        <small>{formatMoney(Number(item.sell_price || 0))} current</small>
                       </td>
                       <td>
                         <textarea
@@ -477,101 +541,62 @@ export default function AdminUsaNumbersPage() {
         </section>
 
         <style jsx>{`
+          .admin-content {
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+          }
           .hero-card, .workspace-card, .stat-card {
             background: #fff;
             border: 1px solid var(--color-border);
-            border-radius: 24px;
-            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
+            border-radius: 28px;
+            box-shadow: 0 16px 38px rgba(15, 23, 42, 0.05);
           }
           .hero-card {
             display: grid;
-            grid-template-columns: 1.4fr 1fr;
+            grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
             gap: 24px;
-            padding: 28px 30px;
-            margin-bottom: 24px;
+            padding: 32px;
             background:
-              radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 26%),
+              radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 28%),
               linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
           }
-          .hero-grid, .stats-grid, .workspace-grid {
+          .hero-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-width: 760px;
+          }
+          .headline-row, .hero-notes, .panel-head, .inventory-topbar, .pager, .pager-actions, .toolbar {
+            display: flex;
+            gap: 14px;
+          }
+          .headline-row, .inventory-topbar, .pager {
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+          .hero-grid, .stats-grid, .flow-shell, .stack, .action-stack {
             display: grid;
             gap: 18px;
           }
           .hero-grid {
             align-content: center;
           }
-          .hero-copy {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-          }
-          .headline-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-          }
-          .hero-pill {
-            display: inline-flex;
-            align-items: center;
-            min-height: 32px;
-            padding: 0 14px;
-            border-radius: 999px;
-            background: rgba(37, 99, 235, 0.10);
-            color: var(--color-primary);
-            border: 1px solid rgba(37, 99, 235, 0.12);
-            font-size: 0.78rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-          }
-          .hero-notes {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-          }
-          .hero-notes span {
-            display: inline-flex;
-            align-items: center;
-            min-height: 34px;
-            padding: 0 12px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.04);
-            color: var(--color-text);
-            font-size: 0.78rem;
-            font-weight: 700;
-          }
           .stats-grid {
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            margin-bottom: 24px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
-          .workspace-grid {
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            margin-bottom: 24px;
+          .flow-shell {
+            grid-template-columns: 1fr;
           }
           .workspace-card, .stat-card {
-            padding: 24px;
+            padding: 28px;
           }
-          .mini-kpi, .panel-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 14px;
-            border-radius: 18px;
-            background: rgba(37, 99, 235, 0.08);
-            color: var(--color-text);
-            font-weight: 700;
-            border: 1px solid rgba(37, 99, 235, 0.08);
+          .inventory-card {
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
           }
-          .panel-head, .inventory-topbar, .pager, .action-stack {
-            display: flex;
-            gap: 16px;
-          }
-          .panel-head, .inventory-topbar, .pager {
-            justify-content: space-between;
-            align-items: flex-start;
-          }
-          .eyebrow, .panel-kicker, .stat-label {
+          .eyebrow, .panel-kicker, .stat-label, .field-label, .bulk-guide-label {
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.12em;
@@ -579,62 +604,151 @@ export default function AdminUsaNumbersPage() {
             color: var(--color-primary);
           }
           h1, h2 {
-            margin: 8px 0 10px;
+            margin: 8px 0 0;
             color: var(--color-text);
           }
-          p {
+          h1 {
+            font-size: clamp(2rem, 3vw, 2.7rem);
+          }
+          p, .panel-copy, .field-hint, .bulk-guide code, .meta-text, small {
             color: var(--color-text-faint);
             line-height: 1.7;
             margin: 0;
           }
-          .stat-value {
-            font-size: 1.8rem;
-            margin-top: 8px;
-            font-weight: 800;
+          .hero-pill, .hero-notes span, .mini-kpi, .panel-badge, .bulk-guide {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 999px;
+            font-weight: 700;
+          }
+          .hero-pill {
+            min-height: 36px;
+            padding: 0 16px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.18));
+            color: var(--color-primary);
+            border: 1px solid rgba(37, 99, 235, 0.14);
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          .hero-notes {
+            flex-wrap: wrap;
+          }
+          .hero-notes span, .mini-kpi, .panel-badge {
+            min-height: 42px;
+            padding: 0 14px;
+            background: rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(37, 99, 235, 0.08);
           }
           .stat-card {
             background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
           }
-          .stack, .price-stack, .action-stack {
-            flex-direction: column;
+          .stat-value {
+            margin-top: 8px;
+            font-size: 1.9rem;
+            font-weight: 800;
           }
-          .split, .toolbar, .pager-actions {
+          .panel-head {
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+          }
+          .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+          }
+          .field-grid.wide {
+            grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.7fr);
+          }
+          .field {
             display: flex;
-            gap: 12px;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .field-hint {
+            font-size: 0.86rem;
           }
           .form-input, .toolbar-input, .table-input {
             width: 100%;
             border: 1px solid var(--color-border);
-            border-radius: 16px;
-            padding: 12px 14px;
+            border-radius: 18px;
+            padding: 14px 16px;
             background: #fff;
             color: var(--color-text);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.84);
           }
+          .form-input:focus, .toolbar-input:focus, .table-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+          }
           .form-textarea, .table-textarea {
             resize: vertical;
           }
-          .bulk-hint, .meta-text, small {
-            color: var(--color-text-faint);
-            font-size: 0.85rem;
+          .bulk-guide {
+            width: fit-content;
+            max-width: 100%;
+            padding: 10px 14px;
+            margin-bottom: 18px;
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            flex-wrap: wrap;
           }
-          .inventory-card {
-            overflow: hidden;
-            background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+          .bulk-guide code {
+            font-family: monospace;
+          }
+          .bulk-area {
+            min-height: 240px;
+          }
+          .btn-primary, .btn-secondary, .btn-danger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 46px;
+            border-radius: 16px;
+            padding: 12px 16px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-weight: 700;
+          }
+          .btn-primary {
+            background: var(--color-primary);
+            color: #fff;
+          }
+          .btn-secondary {
+            background: #fff;
+            color: var(--color-text);
+            border-color: var(--color-border);
+          }
+          .btn-danger {
+            background: rgba(239, 68, 68, 0.08);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.15);
+          }
+          .btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-danger:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+          }
+          .panel-btn, .compact, .toolbar-btn {
+            width: fit-content;
           }
           .table-shell {
             overflow-x: auto;
             margin-top: 18px;
             border: 1px solid rgba(15, 23, 42, 0.06);
-            border-radius: 20px;
+            border-radius: 22px;
           }
           .inventory-table {
             width: 100%;
+            min-width: 1080px;
             border-collapse: collapse;
             background: #fff;
           }
           .inventory-table th, .inventory-table td {
-            padding: 14px 12px;
+            padding: 16px 14px;
             border-top: 1px solid var(--color-border);
             vertical-align: top;
             text-align: left;
@@ -647,18 +761,17 @@ export default function AdminUsaNumbersPage() {
             color: var(--color-text-faint);
           }
           .number-cell {
-            min-width: 220px;
+            min-width: 240px;
           }
-          .number-cell span {
-            display: block;
-            margin-top: 8px;
+          .price-cell {
+            min-width: 150px;
           }
           .note-area {
-            margin-top: 8px;
+            margin-top: 10px;
           }
           .status-pill {
             display: inline-flex;
-            padding: 6px 10px;
+            padding: 7px 12px;
             border-radius: 999px;
             font-size: 0.78rem;
             text-transform: capitalize;
@@ -677,32 +790,8 @@ export default function AdminUsaNumbersPage() {
             background: rgba(244, 63, 94, 0.12);
             color: #be123c;
           }
-          .btn-primary, .btn-secondary, .btn-danger {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border-radius: 14px;
-            padding: 11px 14px;
-            border: 1px solid transparent;
-            cursor: pointer;
-          }
-          .btn-primary {
-            background: var(--color-primary);
-            color: #fff;
-          }
-          .btn-secondary {
-            background: #fff;
-            color: var(--color-text);
-            border-color: var(--color-border);
-          }
-          .btn-danger {
-            background: rgba(239, 68, 68, 0.08);
-            color: #dc2626;
-            border-color: rgba(239, 68, 68, 0.15);
-          }
-          .compact {
-            width: 100%;
+          .action-stack {
+            grid-template-columns: 1fr;
           }
           .empty-row {
             text-align: center;
@@ -710,24 +799,40 @@ export default function AdminUsaNumbersPage() {
           }
           .search-shell {
             position: relative;
-            min-width: 260px;
+            min-width: min(100%, 320px);
+            flex: 1;
           }
           .search-shell :global(svg) {
             position: absolute;
             top: 50%;
-            left: 12px;
+            left: 14px;
             transform: translateY(-50%);
             color: var(--color-text-faint);
           }
           .search-shell .toolbar-input {
-            padding-left: 38px;
+            padding-left: 40px;
           }
-          @media (max-width: 960px) {
-            .hero-card {
+          .toolbar-select {
+            min-width: 180px;
+          }
+          @media (max-width: 1100px) {
+            .hero-card, .stats-grid {
               grid-template-columns: 1fr;
             }
-            .inventory-topbar, .toolbar, .split, .pager {
+          }
+          @media (max-width: 960px) {
+            .admin-content {
+              padding: 20px;
+            }
+            .field-grid, .field-grid.wide, .inventory-topbar, .toolbar, .pager {
+              grid-template-columns: 1fr;
               flex-direction: column;
+            }
+            .panel-btn, .toolbar-btn {
+              width: 100%;
+            }
+            .stats-grid {
+              grid-template-columns: 1fr;
             }
           }
         `}</style>

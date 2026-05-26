@@ -5,6 +5,7 @@ export interface UsaNumberItem {
   phone_number: string;
   service_name: string;
   category: string;
+  redirect_url?: string;
   sell_price: number;
   notes?: string | null;
   otp_code?: string | null;

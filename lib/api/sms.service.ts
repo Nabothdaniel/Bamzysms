@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { PaginatedMeta, SmsPurchase } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export const smsService = {
     apiClient.post('/sms/set-status', { activationId, status }),
 
   // User's purchase history (paginated)
-  getPurchases: (limit = 20, offset = 0): Promise<{ status: string; data: any[]; meta: any }> =>
+  getPurchases: (limit = 20, offset = 0): Promise<{ status: string; data: SmsPurchase[]; meta: PaginatedMeta }> =>
     apiClient.get(`/sms/purchases?limit=${limit}&offset=${offset}`),
 
   // Hide a purchase from history

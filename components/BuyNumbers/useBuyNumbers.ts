@@ -66,18 +66,25 @@ export function useBuyNumbers(defaultCountry: string) {
 
   // 2. Fetch price/availability when both selections are made
   useEffect(() => {
-    if (selectedCountryId !== null && selectedServiceCode) {
+    const loadAvailability = async () => {
+      if (selectedCountryId === null || !selectedServiceCode) {
+        setPriceInfo(null);
+        return;
+      }
+
       setCheckingPrice(true);
-      smsService.getAvailability(selectedServiceCode, selectedCountryId)
-        .then(res => setPriceInfo(res.data))
-        .catch(() => {
-          setPriceInfo({ available: false, price: null, count: 0 });
-          addToast('Could not fetch price for this selection.', 'error');
-        })
-        .finally(() => setCheckingPrice(false));
-    } else {
-      setPriceInfo(null);
-    }
+      try {
+        const response = await smsService.getAvailability(selectedServiceCode, selectedCountryId);
+        setPriceInfo(response.data);
+      } catch {
+        setPriceInfo({ available: false, price: null, count: 0 });
+        addToast('Could not fetch price for this selection.', 'error');
+      } finally {
+        setCheckingPrice(false);
+      }
+    };
+
+    void loadAvailability();
   }, [selectedCountryId, selectedServiceCode, addToast]);
 
   const country = countries.find(c => c.id === selectedCountryId);

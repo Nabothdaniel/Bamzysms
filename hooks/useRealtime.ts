@@ -18,7 +18,6 @@ export function useRealtime() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    // Only connect if authenticated
     if (!isAuthenticated || !user) {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -27,20 +26,15 @@ export function useRealtime() {
       return;
     }
 
-    // Get token for auth (passed via query param because EventSource doesn't support headers)
     const token = sessionStorage.getItem('bamzysms-token') || localStorage.getItem('bamzysms-token');
     
     if (!token) return;
 
-    // Initialize SSE connection
     const streamUrl = `${API_URL}/events/stream?token=${encodeURIComponent(token)}`;
-    const es = new EventSource(streamUrl);
-    eventSourceRef.current = es;
+    const eventSource = new EventSource(streamUrl);
+    eventSourceRef.current = eventSource;
 
-    console.log('Real-time: Connecting to SSE stream...');
-
-    // Live Balance Updates
-    es.addEventListener('balance_updated', (e) => {
+    eventSource.addEventListener('balance_updated', (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.new_balance !== undefined) {
@@ -48,7 +42,6 @@ export function useRealtime() {
         }
         if (data.message) {
           addToast(data.message, 'success');
-          // Also add to notifications list
           const { addNotification } = useAppStore.getState();
           addNotification({
             id: Date.now(),
@@ -58,18 +51,16 @@ export function useRealtime() {
             created_at: new Date().toISOString()
           });
         }
-      } catch (err) {
-        console.error('Real-time: Error parsing balance_updated event', err);
+      } catch {
+        addToast('A live balance update could not be processed.', 'error');
       }
     });
 
-    // Generic Notifications
-    es.addEventListener('notification', (e) => {
+    eventSource.addEventListener('notification', (e) => {
       try {
         const data = JSON.parse(e.data);
         if (data.message) {
           addToast(data.message, data.type || 'info');
-          // Also add to notifications list
           const { addNotification } = useAppStore.getState();
           addNotification({
             id: Date.now(),
@@ -79,15 +70,14 @@ export function useRealtime() {
             created_at: new Date().toISOString()
           });
         }
-      } catch (err) {
-        console.error('Real-time: Error parsing notification event', err);
+      } catch {
+        addToast('A live notification could not be processed.', 'error');
       }
     });
 
-    // Error handling
-    es.onerror = (err) => {
-      console.error('Real-time: SSE connection error. Reconnecting...', err);
-      es.close();
+    eventSource.onerror = () => {
+      addToast('Live updates connection was interrupted.', 'info');
+      eventSource.close();
     };
 
     return () => {

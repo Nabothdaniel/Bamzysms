@@ -90,6 +90,7 @@ export default function RegisterPage() {
             placeholder="Choose a username"
             icon={RiUserLine}
             required
+            autoComplete="username"
           />
 
           <AuthTextField
@@ -99,6 +100,8 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="e.g. John Doe"
             icon={RiUserLine}
+            autoComplete="name"
+            autoCapitalize="words"
           />
 
           <AuthTextField
@@ -109,6 +112,8 @@ export default function RegisterPage() {
             onChange={handleChange}
             placeholder="+234..."
             icon={RiPhoneLine}
+            autoComplete="tel"
+            inputMode="tel"
           />
 
           <AuthPasswordField
@@ -120,6 +125,7 @@ export default function RegisterPage() {
             visible={showPass}
             onToggleVisibility={() => setShowPass((value) => !value)}
             required
+            autoComplete="new-password"
           />
 
           <AuthPasswordField
@@ -131,6 +137,7 @@ export default function RegisterPage() {
             visible={showConfirm}
             onToggleVisibility={() => setShowConfirm((value) => !value)}
             required
+            autoComplete="new-password"
           />
 
           <button type="submit" className="btn-primary"

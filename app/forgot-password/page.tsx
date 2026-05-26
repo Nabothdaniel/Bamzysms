@@ -169,6 +169,7 @@ export default function ForgotPasswordPage() {
                 onChange={handleChange}
                 placeholder="Enter your username"
                 icon={RiUserLine}
+                autoComplete="username"
               />
 
               {recoveryMode === 'key' && (
@@ -181,6 +182,8 @@ export default function ForgotPasswordPage() {
                   icon={RiLockLine}
                   inputStyle={{ textTransform: 'uppercase' }}
                   helperText="Enter the secret key given to you during registration."
+                  autoCapitalize="characters"
+                  spellCheck={false}
                 />
               )}
 
@@ -207,6 +210,8 @@ export default function ForgotPasswordPage() {
               icon={RiMessage2Line}
               maxLength={6}
               inputStyle={{ letterSpacing: '0.5em', fontWeight: 700 }}
+              autoComplete="one-time-code"
+              inputMode="numeric"
             />
             <button type="button" onClick={handleVerifyOtp} className="btn-primary"
               style={{ padding: '15px', width: '100%', fontSize: '1rem', marginTop: 10 }}>
@@ -234,6 +239,7 @@ export default function ForgotPasswordPage() {
               placeholder="Enter new password"
               visible={showPass}
               onToggleVisibility={() => setShowPass((value) => !value)}
+              autoComplete="new-password"
             />
 
             <AuthPasswordField
@@ -244,6 +250,7 @@ export default function ForgotPasswordPage() {
               placeholder="Confirm new password"
               visible={showConfirm}
               onToggleVisibility={() => setShowConfirm((value) => !value)}
+              autoComplete="new-password"
             />
 
             <button type="submit" className="btn-primary"

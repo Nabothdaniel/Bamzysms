@@ -49,6 +49,14 @@ export interface SmsPurchase {
   updated_at?: string;
 }
 
+export interface PaginatedMeta {
+  total?: number;
+  page?: number;
+  per_page?: number;
+  limit?: number;
+  offset?: number;
+}
+
 export interface TelegramNumber {
   id: number;
   phone_number: string;

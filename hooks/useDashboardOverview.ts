@@ -7,7 +7,7 @@ import { SmsPurchase, TelegramNumber, Transaction } from '@/types';
 import { useAppStore } from '@/store/appStore';
 
 export function useDashboardOverview() {
-  const { setUser, virtualAccounts, setVirtualAccounts } = useAppStore();
+  const { addToast, setUser, virtualAccounts, setVirtualAccounts } = useAppStore();
   const [recentPurchases, setRecentPurchases] = useState<SmsPurchase[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [telegramPurchases, setTelegramPurchases] = useState<TelegramNumber[]>([]);
@@ -18,42 +18,48 @@ export function useDashboardOverview() {
     return response.data;
   }, [setUser]);
 
-  useEffect(() => {
-    refreshProfile().catch((error) => console.error('Failed to fetch profile', error));
+  const loadOverviewData = useCallback(async () => {
+    try {
+      await refreshProfile();
 
-    smsService
-      .getPurchases()
-      .then((response) => {
-        setRecentPurchases(response?.data?.slice(0, 5) || []);
-      })
-      .catch((error) => console.error('Failed to fetch purchases', error));
+      const [purchasesResponse, transactionsResponse, telegramResponse] = await Promise.all([
+        smsService.getPurchases(),
+        userService.getTransactions(),
+        manualNumberService.getMyTelegramNumbers(),
+      ]);
 
-    userService
-      .getTransactions()
-      .then((response) => {
-        setRecentTransactions(response?.data?.slice(0, 5) || []);
-      })
-      .catch((error) => console.error('Failed to fetch transactions', error));
-
-    manualNumberService
-      .getMyTelegramNumbers()
-      .then((response) => {
-        setTelegramPurchases(response?.data || []);
-      })
-      .catch((error) => console.error('Failed to fetch Telegram purchases', error));
-
-    if (virtualAccounts.length === 0) {
-      paymentService
-        .getVirtualAccount()
-        .then((response) => {
-          if (response.status === 'success' && response.bankAccounts?.length > 0) {
-            const sortedAccounts = [...response.bankAccounts].sort((a, b) => a.bankName.localeCompare(b.bankName));
-            setVirtualAccounts(sortedAccounts);
-          }
-        })
-        .catch((error) => console.error('Failed to fetch virtual account', error));
+      setRecentPurchases(purchasesResponse.data.slice(0, 5));
+      setRecentTransactions(transactionsResponse.data.slice(0, 5));
+      setTelegramPurchases(telegramResponse.data || []);
+    } catch {
+      addToast('Failed to load dashboard overview.', 'error');
     }
-  }, [refreshProfile, setVirtualAccounts, virtualAccounts.length]);
+  }, [addToast, refreshProfile]);
+
+  const loadVirtualAccounts = useCallback(async () => {
+    if (virtualAccounts.length > 0) {
+      return;
+    }
+
+    try {
+      const response = await paymentService.getVirtualAccount();
+      if (response.status !== 'success' || response.bankAccounts.length === 0) {
+        return;
+      }
+
+      const sortedAccounts = [...response.bankAccounts].sort((firstAccount, secondAccount) =>
+        firstAccount.bankName.localeCompare(secondAccount.bankName)
+      );
+      setVirtualAccounts(sortedAccounts);
+    } catch {
+      addToast('Failed to load virtual account.', 'error');
+    }
+  }, [addToast, setVirtualAccounts, virtualAccounts.length]);
+
+  useEffect(() => {
+    void loadOverviewData();
+    void loadVirtualAccounts();
+  }, [loadOverviewData, loadVirtualAccounts]);
 
   return {
     recentPurchases,

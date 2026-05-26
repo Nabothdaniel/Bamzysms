@@ -87,7 +87,7 @@ export function usePricing() {
     } finally {
       setLoading(false);
     }
-  }, [addToast, canLoadAdminData, pagination?.limit, selectedCountry]);
+  }, [addToast, canLoadAdminData, pagination.limit, pagination.page, search, selectedCountry]);
 
   useEffect(() => {
     if (!canLoadAdminData) return;
@@ -218,20 +218,6 @@ export function usePricing() {
 
   const updateGlobalSettings = async (updates: Partial<AdminSettings>) => {
     setLoading(true);
-    // [/] Frontend: UI Improvements
-    // - [x] UI: Update `AdminPagination.tsx`
-    // - [x] Add "First Page" (`RiArrowLeftDoubleLine`)
-    // - [x] Add "Last Page" (`RiArrowRightDoubleLine`)
-    // - [x] Style the new buttons for consistency
-    // - [x] Backend: Update `AdminPricingController.php`
-    // - [x] Ensure pagination results are reset to page 1 if current page is out of bounds (after filtering)
-    // - [x] Logic Check: `usePricing.ts`
-    // - [x] Double-check that search and country filters correctly reset `page` to 1 in local state
-    // - [x] Fixed recursive pagination reset bug
-    // - [/] Verification
-    // - [ ] Manual test of First/Last buttons
-    // - [ ] Verify page 2 loads correctly on a clean list
-    // - [ ] Verify search resets page to 1
     try {
       await adminService.updateSettings(updates);
       addToast('Global settings updated successfully', 'success');
@@ -287,4 +273,3 @@ export function usePricing() {
     busy
   };
 }
-
