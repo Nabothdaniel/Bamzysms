@@ -1,1 +1,11 @@
-run tests and prepare for production both for the frontend and baceknd contniously monitor the tests anyone that passes build if not debug,correct and rerun the test 
+[DONE] 1. Hide specific phone numbers for available items in USA Numbers Beta (User Dashboard). Show "Available Number" instead.
+[DONE] 2. Implement manual and automatic OTP refresh in USA Numbers Beta (User Dashboard).
+[DONE] 3. Refactor Bulk Upload in Admin Dashboard (USA & Telegram Numbers):
+   - Add global selection for Category and Price/Service.
+   - Simplified bulk format to "number,extra_field" (e.g. number,link for USA; number,otp for Telegram).
+[DONE] 4. Remove "sms bower" implementation across frontend and backend.
+   - Deleted: SmsBowerClient, ActivationService, ServiceController, SMSController, SMSPurchase model, BuyNumbers components, usePricing hook.
+   - Removed: All SMS Bower routes from backend and sidebar.
+[DONE] 5. Remove USA Numbers (non-beta) route for users.
+[DONE] 6. Clean up Admin/User pages related to legacy services.
+   - Removed: all-countries page, legacy prices management page.

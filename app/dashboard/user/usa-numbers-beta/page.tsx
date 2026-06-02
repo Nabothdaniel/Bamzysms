@@ -44,6 +44,7 @@ export default function UsaNumbersBetaPage() {
   const [fetchingOtpId, setFetchingOtpId] = useState<number | null>(null);
   const [latestResult, setLatestResult] = useState<{ phone: string; otp: string } | null>(null);
   const [activeStep, setActiveStep] = useState<PurchaseStepState | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const ownedSectionRef = useRef<HTMLElement | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -107,6 +108,43 @@ export default function UsaNumbersBetaPage() {
     }
   }, [mine, activeStep]);
 
+  const handleRefreshOtp = useCallback(async (numberId: number) => {
+    setFetchingOtpId(numberId);
+    try {
+      const res = await usaNumberService.refreshOtp(numberId);
+      const otp = res?.data?.otp_code || '';
+      const target = mine.find((item) => item.id === numberId) || activeStep;
+
+      setLatestResult({
+        phone: target?.phone_number || 'USA number',
+        otp,
+      });
+
+      if (activeStep?.id === numberId) {
+        setActiveStep((prev) => prev ? { ...prev, otp_code: otp } : prev);
+      }
+
+      addToast(otp ? 'OTP retrieved successfully' : 'No code yet. Try again in a moment.', otp ? 'success' : 'info');
+      await fetchData();
+    } catch (error: any) {
+      addToast(error.message || 'Failed to fetch OTP', 'error');
+    } finally {
+      setFetchingOtpId(null);
+    }
+  }, [addToast, fetchData, activeStep, mine]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh && activeStep && !activeStep.otp_code) {
+      interval = setInterval(() => {
+        handleRefreshOtp(activeStep.id);
+      }, 5000); // Refresh every 5 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, activeStep, handleRefreshOtp]);
+
   const handleBuyClick = (item: UsaNumberItem) => {
     if (!user) return;
     if (Number(user.balance) < Number(item.sell_price)) {
@@ -157,30 +195,7 @@ export default function UsaNumbersBetaPage() {
     }
   };
 
-  const handleRefreshOtp = async (numberId: number) => {
-    setFetchingOtpId(numberId);
-    try {
-      const res = await usaNumberService.refreshOtp(numberId);
-      const otp = res?.data?.otp_code || '';
-      const target = mine.find((item) => item.id === numberId) || activeStep;
 
-      setLatestResult({
-        phone: target?.phone_number || 'USA number',
-        otp,
-      });
-
-      if (activeStep?.id === numberId) {
-        setActiveStep((prev) => prev ? { ...prev, otp_code: otp } : prev);
-      }
-
-      addToast(otp ? 'OTP retrieved successfully' : 'No code yet. Try again in a moment.', otp ? 'success' : 'info');
-      await fetchData();
-    } catch (error: any) {
-      addToast(error.message || 'Failed to fetch OTP', 'error');
-    } finally {
-      setFetchingOtpId(null);
-    }
-  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -314,7 +329,7 @@ export default function UsaNumbersBetaPage() {
                 <div className="market-card-head">
                   <div>
                     <div className="country-chip">{item.category || 'USA'}</div>
-                    <div className="market-number">{item.phone_number}</div>
+                    <div className="market-number">Available Number</div>
                     <div className="service-name">{item.service_name || 'USA Number'}</div>
                   </div>
                   <div className="price-tag">{formatMoney(item.sell_price)}</div>
@@ -413,15 +428,27 @@ export default function UsaNumbersBetaPage() {
                           </a>
                         )}
                         {!item.otp_code && (
-                          <button
-                            className="btn-primary inline-fetch"
-                            type="button"
-                            onClick={() => handleRefreshOtp(item.id)}
-                            disabled={fetchingOtpId === item.id}
-                          >
-                            {fetchingOtpId === item.id ? <RiLoader4Line size={16} className="spin" /> : <RiCheckLine size={16} />}
-                            {fetchingOtpId === item.id ? 'Checking for code...' : 'I have inputed the number'}
-                          </button>
+                          <div className="stack" style={{ gap: '10px', marginTop: '10px' }}>
+                            <button
+                              className="btn-primary inline-fetch"
+                              type="button"
+                              onClick={() => handleRefreshOtp(item.id)}
+                              disabled={fetchingOtpId === item.id}
+                            >
+                              {fetchingOtpId === item.id ? <RiLoader4Line size={16} className="spin" /> : <RiCheckLine size={16} />}
+                              {fetchingOtpId === item.id ? 'Checking for code...' : 'I have inputed the number'}
+                            </button>
+                            
+                            <button
+                              className={`btn-secondary ${autoRefresh ? 'active-pulse' : ''}`}
+                              type="button"
+                              onClick={() => setAutoRefresh(!autoRefresh)}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                              <RiLoader4Line size={16} className={autoRefresh ? 'spin' : ''} />
+                              {autoRefresh ? 'Auto-refreshing...' : 'Enable Auto-refresh'}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -790,6 +817,11 @@ export default function UsaNumbersBetaPage() {
         }
         .spin {
           animation: spin 0.9s linear infinite;
+        }
+        .active-pulse {
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+          background: rgba(37, 99, 235, 0.05);
         }
         @keyframes spin {
           from { transform: rotate(0deg); }

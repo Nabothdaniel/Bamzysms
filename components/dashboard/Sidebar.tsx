@@ -17,9 +17,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/user', icon: <RiDashboardLine size={18} />, label: 'Dashboard' },
   { href: '/dashboard/user/fund-wallet', icon: <RiWalletLine size={18} />, label: 'Fund Wallet' },
   { href: 'https://Bamzystore.org/', icon: <RiShoppingBag3Line size={18} />, label: 'Buy Logs' },
-  { href: '/dashboard/user/usa-numbers', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
-  { href: '/dashboard/user/usa-numbers-beta', icon: <RiPhoneLine size={18} />, label: 'USA Numbers', badge: 'Beta' },
-  { href: '/dashboard/user/all-countries', icon: <RiGlobalLine size={18} />, label: 'All Countries Numbers' },
+  { href: '/dashboard/user/usa-numbers-beta', icon: <RiPhoneLine size={18} />, label: 'USA Numbers' },
   { href: '/dashboard/user/telegram-numbers', icon: <RiSendPlaneLine size={18} />, label: 'Telegram Numbers' },
   { href: '/dashboard/user/refer', icon: <RiUserSharedLine size={18} />, label: 'Refer & Earn' },
   { href: '/dashboard/user/security', icon: <RiShieldKeyholeLine size={18} />, label: 'Security & API' },
@@ -98,26 +96,6 @@ export default function Sidebar() {
                 {item.icon}
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <span>{item.label}</span>
-                  {item.badge && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minHeight: 24,
-                      padding: '0 10px',
-                      borderRadius: 999,
-                      background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.22))',
-                      color: 'var(--color-primary)',
-                      border: '1px solid rgba(37, 99, 235, 0.14)',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
-                    }}>
-                      {item.badge}
-                    </span>
-                  )}
                 </span>
                 {item.href === '/dashboard/user/security' && user && !user.recovery_key_saved && (
                   <div style={{

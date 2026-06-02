@@ -17,23 +17,20 @@ import {
   RiInboxArchiveLine,
 } from 'react-icons/ri';
 
-function parseBulkRows(input: string) {
+function parseBulkRows(input: string, globalCountry: string, globalSellPrice: number, globalCostPrice: number) {
   return input
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
       const parts = line.split(',').map((part) => part.trim());
-      const [phone_number = '', country_name = '', sell_price = '', cost_price = ''] = parts;
-      const trailing = parts.slice(4);
-      const otp_code = trailing.length > 0 ? trailing[trailing.length - 1] : '';
-      const notes = trailing.length > 1 ? trailing.slice(0, -1).join(', ') : '';
+      const [phone_number = '', otp_code = '', ...rest] = parts;
       return {
         phone_number,
-        country_name,
-        sell_price: Number(sell_price),
-        cost_price: Number(cost_price || 0),
-        notes,
+        country_name: globalCountry,
+        sell_price: globalSellPrice,
+        cost_price: globalCostPrice,
+        notes: rest.join(', '),
         otp_code,
       };
     });
@@ -65,6 +62,9 @@ export default function AdminTelegramNumbersPage() {
     otp_code: '',
   });
   const [bulkText, setBulkText] = useState('');
+  const [bulkCountry, setBulkCountry] = useState('');
+  const [bulkSellPrice, setBulkSellPrice] = useState('');
+  const [bulkCostPrice, setBulkCostPrice] = useState('');
 
   const canLoad = hasHydrated && user?.role === 'admin';
 
@@ -136,7 +136,7 @@ export default function AdminTelegramNumbersPage() {
 
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rows = parseBulkRows(bulkText);
+    const rows = parseBulkRows(bulkText, bulkCountry, Number(bulkSellPrice) || 0, Number(bulkCostPrice) || 0);
     if (rows.length === 0) {
       addToast('Add at least one CSV row first', 'error');
       return;
@@ -268,16 +268,39 @@ export default function AdminTelegramNumbersPage() {
             </div>
 
             <div className="bulk-hint">
-              Format each line as `phone_number,country_name,sell_price,cost_price,notes,otp_code`
+              Format each line as `phone_number,otp_code`
             </div>
 
             <form onSubmit={handleBulkSubmit} className="stack">
+              <input 
+                value={bulkCountry} 
+                onChange={(e) => setBulkCountry(e.target.value)} 
+                placeholder="Bulk Country (e.g. Nigeria)" 
+                className="form-input" 
+              />
+              <div className="split">
+                <input 
+                  value={bulkSellPrice} 
+                  onChange={(e) => setBulkSellPrice(e.target.value)} 
+                  placeholder="Bulk Sell Price" 
+                  type="number" 
+                  className="form-input" 
+                />
+                <input 
+                  value={bulkCostPrice} 
+                  onChange={(e) => setBulkCostPrice(e.target.value)} 
+                  placeholder="Bulk Cost Price" 
+                  type="number" 
+                  className="form-input" 
+                />
+              </div>
+
               <textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder={'+2348012345678,Nigeria,2500,1800,Fresh line,553311\n+12025550123,USA,4200,3000,Premium stock,771100'}
+                placeholder={'+2348012345678,553311\n+12025550123,771100'}
                 className="form-input form-textarea bulk-area"
-                rows={12}
+                rows={8}
               />
 
               <button className="btn-primary panel-btn" type="submit" disabled={submittingBulk}>

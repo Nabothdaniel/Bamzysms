@@ -25,7 +25,7 @@ type UsaDraft = {
   notes: string;
 };
 
-function parseBulkRows(input: string) {
+function parseBulkRows(input: string, globalService: string, globalCategory: string, globalPrice: number) {
   return input
     .split('\n')
     .map((line) => line.trim())
@@ -34,18 +34,15 @@ function parseBulkRows(input: string) {
       const parts = line.split(',').map((part) => part.trim());
       const [
         phone_number = '',
-        service_name = 'USA Number',
-        category = 'WhatsApp',
-        sell_price = '',
         redirect_url = '',
         ...rest
       ] = parts;
 
       return {
         phone_number,
-        service_name,
-        category,
-        sell_price: Number(sell_price),
+        service_name: globalService,
+        category: globalCategory,
+        sell_price: globalPrice,
         redirect_url,
         notes: rest.join(', '),
       };
@@ -76,6 +73,9 @@ export default function AdminUsaNumbersPage() {
     notes: '',
   });
   const [bulkText, setBulkText] = useState('');
+  const [bulkService, setBulkService] = useState('USA Number');
+  const [bulkCategory, setBulkCategory] = useState('WhatsApp');
+  const [bulkPrice, setBulkPrice] = useState('');
 
   const canLoad = hasHydrated && user?.role === 'admin';
 
@@ -167,7 +167,7 @@ export default function AdminUsaNumbersPage() {
 
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rows = parseBulkRows(bulkText);
+    const rows = parseBulkRows(bulkText, bulkService, bulkCategory, Number(bulkPrice) || 0);
     if (rows.length === 0) {
       addToast('Add at least one row first', 'error');
       return;
@@ -377,18 +377,50 @@ export default function AdminUsaNumbersPage() {
 
             <div className="bulk-guide">
               <span className="bulk-guide-label">Row format</span>
-              <code>phone_number,name,category,sell_price,redirect_url,notes</code>
+              <code>phone_number,redirect_url</code>
             </div>
 
             <form onSubmit={handleBulkSubmit} className="stack">
+              <div className="field-grid">
+                <label className="field">
+                  <span className="field-label">Bulk Service Name</span>
+                  <input
+                    value={bulkService}
+                    onChange={(e) => setBulkService(e.target.value)}
+                    placeholder="e.g. WhatsApp Fresh"
+                    className="form-input"
+                  />
+                </label>
+                <label className="field">
+                  <span className="field-label">Bulk Category</span>
+                  <input
+                    value={bulkCategory}
+                    onChange={(e) => setBulkCategory(e.target.value)}
+                    placeholder="e.g. WhatsApp"
+                    className="form-input"
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span className="field-label">Bulk Sell Price</span>
+                <input
+                  value={bulkPrice}
+                  onChange={(e) => setBulkPrice(e.target.value)}
+                  placeholder="4200"
+                  className="form-input"
+                  type="number"
+                />
+              </label>
+
               <label className="field">
                 <span className="field-label">Rows</span>
                 <textarea
                   value={bulkText}
                   onChange={(e) => setBulkText(e.target.value)}
-                  placeholder={'+12025550123,WhatsApp Fresh,WhatsApp,4200,https://example.com/otp/123,fast stock\n+12025550124,WhatsApp Aged,WhatsApp,4500,https://example.com/otp/124,aged account'}
+                  placeholder={'+12025550123,https://example.com/otp/123\n+12025550124,https://example.com/otp/124'}
                   className="form-input form-textarea bulk-area"
-                  rows={11}
+                  rows={8}
                 />
               </label>
 

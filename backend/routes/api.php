@@ -29,19 +29,7 @@ $router->add('POST', '/user/reveal-recovery-key',     'UserController',      're
 $router->add('GET',  '/transactions',         'TransactionController', 'getHistory');
 $router->add('POST', '/purchase',             'TransactionController', 'purchase');
 
-// Services & Countries (live from SMSBower)
-$router->add('GET',  '/services',             'ServiceController',     'getServices');
-$router->add('GET',  '/countries',            'ServiceController',     'getCountries');
-$router->add('GET',  '/prices',               'ServiceController',     'getPrices');
-$router->add('GET',  '/available',            'ServiceController',     'getAvailable');
 
-// SMS / Activations
-$router->add('POST', '/sms/buy',              'SMSController',         'buy');
-$router->add('POST', '/sms/reveal',           'SMSController',         'getPlainNumber');
-$router->add('GET',  '/sms/purchases',        'SMSController',         'getPurchases');
-$router->add('GET',  '/sms/status',           'SMSController',         'getStatus');
-$router->add('POST', '/sms/set-status',       'SMSController',         'setActivationStatus');
-$router->add('POST', '/sms/hide',             'SMSController',         'hide');
 
 // Manual / Admin-managed numbers
 $router->add('GET',  '/manual-numbers/telegram',          'ManualNumberController',      'getAvailableTelegram');
