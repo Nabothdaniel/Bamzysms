@@ -1,862 +1,612 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardPageShell from '@/components/dashboard/DashboardPageShell';
 import PinModal from '@/components/ui/PinModal';
 import { usaNumberService, UsaNumberItem, userService } from '@/lib/api';
-import { useAppStore } from '@/store/appStore';
 import { formatMoney } from '@/lib/utils';
+import { useAppStore } from '@/store/appStore';
 import {
-  RiArrowRightLine,
-  RiCheckLine,
-  RiExternalLinkLine,
+  RiFileCopyLine,
   RiEyeLine,
   RiEyeOffLine,
-  RiFileCopyLine,
-  RiFlashlightLine,
-  RiHistoryLine,
-  RiLoader4Line,
-  RiPriceTag3Line,
-  RiRocketLine,
-  RiTimeLine,
+  RiDeleteBinLine,
+  RiCheckboxCircleLine,
+  RiMessage3Line,
   RiWalletLine,
+  RiSearchLine,
+  RiRefreshLine,
+  RiArchiveLine,
+  RiWhatsappLine,
+  RiTelegramLine,
+  RiGoogleLine,
+  RiInstagramLine,
+  RiTwitterXLine,
+  RiSmartphoneLine,
 } from 'react-icons/ri';
 
-type PurchaseStepState = {
-  id: number;
-  phone_number: string;
+/* ─── helpers ──────────────────────────────────────────── */
+
+/** Derive an icon + colour from the service_name string */
+function getServiceVisual(name: string): { icon: React.ReactNode; color: string; bg: string } {
+  const n = name.toLowerCase();
+  if (n.includes('whatsapp')) return { icon: <RiWhatsappLine />, color: '#25D366', bg: '#F0FDF4' };
+  if (n.includes('telegram')) return { icon: <RiTelegramLine />, color: '#0088CC', bg: '#EFF9FF' };
+  if (n.includes('google') || n.includes('gmail'))
+    return { icon: <RiGoogleLine />, color: '#EA4335', bg: '#FFF1F0' };
+  if (n.includes('instagram')) return { icon: <RiInstagramLine />, color: '#E1306C', bg: '#FFF0F5' };
+  if (n.includes('twitter') || n.includes('x.com'))
+    return { icon: <RiTwitterXLine />, color: '#111827', bg: '#F3F4F6' };
+  return { icon: <RiSmartphoneLine />, color: '#2563EB', bg: '#EFF6FF' };
+}
+
+function normalizeOtpCode(value?: string | null): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  const digits = raw.match(/\d+/g)?.join('');
+  if (digits) return digits;
+
+  return raw.replace(/\D/g, '');
+}
+
+function getDisplayServiceLabel(name?: string | null): string {
+  const raw = String(name || '').trim();
+  if (!raw) return 'Verified Number';
+
+  const lower = raw.toLowerCase();
+  if (lower.includes('whatsapp') || lower.includes('telegram') || lower.includes('google') || lower.includes('gmail') || lower.includes('instagram') || lower.includes('twitter') || lower.includes('x.com')) {
+    return 'Verified Number';
+  }
+
+  return 'Verified Number';
+}
+
+/** Compute a human-readable expiry string from sold_at (numbers expire 15 min after purchase) */
+function getExpiry(soldAt?: string | null): string {
+  if (!soldAt) return '—';
+  const expiresAt = new Date(new Date(soldAt).getTime() + 15 * 60 * 1000);
+  const diff = expiresAt.getTime() - Date.now();
+  if (diff <= 0) return 'Expired';
+  const m = Math.floor(diff / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Groups available numbers by service_name, returns an array of unique services */
+function groupByService(items: UsaNumberItem[]): Array<{
   service_name: string;
   category: string;
-  redirect_url?: string;
-  otp_code?: string | null;
+  count: number;
+  cheapest: UsaNumberItem;
+}> {
+  const map = new Map<string, UsaNumberItem[]>();
+  for (const item of items) {
+    const key = item.service_name;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+  return Array.from(map.entries()).map(([service_name, list]) => {
+    list.sort((a, b) => a.sell_price - b.sell_price);
+    return {
+      service_name,
+      category: list[0].category,
+      count: list.length,
+      cheapest: list[0],
+    };
+  });
+}
+
+type ActiveSpotlight = {
+  phone_number: string;
+  service_name: string;
+  otp_code: string | null | undefined;
+  received_at?: string;
 };
 
-export default function UsaNumbersBetaPage() {
+/* ─── page ──────────────────────────────────────────────── */
+
+export default function UsaNumbersPage() {
   const { addToast, user, setUser } = useAppStore();
   const [available, setAvailable] = useState<UsaNumberItem[]>([]);
   const [mine, setMine] = useState<UsaNumberItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedNumber, setSelectedNumber] = useState<UsaNumberItem | null>(null);
-  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [selectedNum, setSelectedNum] = useState<UsaNumberItem | null>(null);
+  const [pinOpen, setPinOpen] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
-  const [revealedOwned, setRevealedOwned] = useState<Record<number, boolean>>({});
-  const [fetchingOtpId, setFetchingOtpId] = useState<number | null>(null);
-  const [latestResult, setLatestResult] = useState<{ phone: string; otp: string } | null>(null);
-  const [activeStep, setActiveStep] = useState<PurchaseStepState | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const ownedSectionRef = useRef<HTMLElement | null>(null);
+  const [revealedMap, setRevealedMap] = useState<Record<number, boolean>>({});
+  const [refreshing, setRefreshing] = useState<Record<number, boolean>>({});
+  const [spotlight, setSpotlight] = useState<ActiveSpotlight | null>(null);
+  const [search, setSearch] = useState('');
 
+  /* ── data ── */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [availableRes, mineRes] = await Promise.all([
+      const [aRes, mRes] = await Promise.all([
         usaNumberService.getAvailable(),
         usaNumberService.getMine(),
       ]);
+      const availList = Array.isArray(aRes?.data) ? aRes.data : [];
+      const mineList = Array.isArray(mRes?.data) ? mRes.data : [];
+      setAvailable(availList);
+      setMine(mineList);
 
-      const availableRows = Array.isArray(availableRes?.data) ? availableRes.data : [];
-      const mineRows = Array.isArray(mineRes?.data) ? mineRes.data : [];
-      setAvailable(availableRows);
-      setMine(mineRows);
-    } catch (error: any) {
-      addToast(error.message || 'Failed to load USA numbers beta', 'error');
+      // Auto-set spotlight to the most recent number that has an OTP code
+      const latest = mineList.find(m => normalizeOtpCode(m.otp_code) !== '');
+      if (latest) {
+        setSpotlight({
+          phone_number: latest.phone_number,
+          service_name: getDisplayServiceLabel(latest.service_name),
+          otp_code: normalizeOtpCode(latest.otp_code),
+          received_at: latest.sold_at ?? undefined,
+        });
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Failed to load', 'error');
     } finally {
       setLoading(false);
     }
   }, [addToast]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    if (activeStep) {
-      const refreshed = mine.find((item) => item.id === activeStep.id);
-      if (
-        refreshed &&
-        (
-          refreshed.phone_number !== activeStep.phone_number ||
-          refreshed.service_name !== activeStep.service_name ||
-          refreshed.category !== activeStep.category ||
-          refreshed.redirect_url !== activeStep.redirect_url ||
-          refreshed.otp_code !== activeStep.otp_code
-        )
-      ) {
-        setActiveStep({
-          id: refreshed.id,
-          phone_number: refreshed.phone_number,
-          service_name: refreshed.service_name,
-          category: refreshed.category,
-          redirect_url: refreshed.redirect_url,
-          otp_code: refreshed.otp_code,
-        });
-      }
-      return;
-    }
-
-    const pending = mine.find((item) => !item.otp_code);
-    if (pending) {
-      setActiveStep({
-        id: pending.id,
-        phone_number: pending.phone_number,
-        service_name: pending.service_name,
-        category: pending.category,
-        redirect_url: pending.redirect_url,
-        otp_code: pending.otp_code,
-      });
-    }
-  }, [mine, activeStep]);
-
-  const handleRefreshOtp = useCallback(async (numberId: number) => {
-    setFetchingOtpId(numberId);
-    try {
-      const res = await usaNumberService.refreshOtp(numberId);
-      const otp = res?.data?.otp_code || '';
-      const target = mine.find((item) => item.id === numberId) || activeStep;
-
-      setLatestResult({
-        phone: target?.phone_number || 'USA number',
-        otp,
-      });
-
-      if (activeStep?.id === numberId) {
-        setActiveStep((prev) => prev ? { ...prev, otp_code: otp } : prev);
-      }
-
-      addToast(otp ? 'OTP retrieved successfully' : 'No code yet. Try again in a moment.', otp ? 'success' : 'info');
-      await fetchData();
-    } catch (error: any) {
-      addToast(error.message || 'Failed to fetch OTP', 'error');
-    } finally {
-      setFetchingOtpId(null);
-    }
-  }, [addToast, fetchData, activeStep, mine]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (autoRefresh && activeStep && !activeStep.otp_code) {
-      interval = setInterval(() => {
-        handleRefreshOtp(activeStep.id);
-      }, 5000); // Refresh every 5 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoRefresh, activeStep, handleRefreshOtp]);
-
-  const handleBuyClick = (item: UsaNumberItem) => {
-    if (!user) return;
-    if (Number(user.balance) < Number(item.sell_price)) {
-      addToast(`Insufficient balance. This number costs ${formatMoney(item.sell_price)}.`, 'error');
-      return;
-    }
-    setSelectedNumber(item);
-    setPinModalOpen(true);
-  };
+  /* ── actions ── */
+  const handleBuy = (item: UsaNumberItem) => { setSelectedNum(item); setPinOpen(true); };
 
   const handlePinSuccess = async (pin: string) => {
-    if (!selectedNumber) return;
-
+    if (!selectedNum) return;
     setPinLoading(true);
     try {
-      if (!user?.hasPin) {
-        await userService.updatePin(pin);
-        addToast('Transaction PIN set successfully!', 'success');
-      }
-
-      const purchaseRes = await usaNumberService.purchase(selectedNumber.id, pin);
-      const profileRes = await userService.getProfile();
-
-      setUser(profileRes.data);
-      setLatestResult({
-        phone: purchaseRes?.data?.phone_number || selectedNumber.phone_number,
-        otp: '',
-      });
-      setActiveStep({
-        id: purchaseRes?.data?.id || selectedNumber.id,
-        phone_number: purchaseRes?.data?.phone_number || selectedNumber.phone_number,
-        service_name: purchaseRes?.data?.service_name || selectedNumber.service_name,
-        category: purchaseRes?.data?.category || selectedNumber.category,
-        redirect_url: purchaseRes?.data?.redirect_url || selectedNumber.redirect_url,
-        otp_code: '',
-      });
-      addToast(`USA number ${selectedNumber.phone_number} purchased successfully`, 'success');
-      setPinModalOpen(false);
-      setSelectedNumber(null);
+      await usaNumberService.purchase(selectedNum.id, pin);
+      setUser((await userService.getProfile()).data);
+      addToast('Purchase successful!', 'success');
+      setPinOpen(false);
       await fetchData();
-      window.setTimeout(() => {
-        ownedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 120);
-    } catch (error: any) {
-      addToast(error.message || 'Purchase failed', 'error');
+    } catch (e: any) {
+      addToast(e.message || 'Purchase failed', 'error');
+    } finally { setPinLoading(false); }
+  };
+
+  const handleRefreshOtp = async (item: UsaNumberItem) => {
+    setRefreshing(p => ({ ...p, [item.id]: true }));
+    setSpotlight({ phone_number: item.phone_number, service_name: item.service_name, otp_code: '…' });
+
+    try {
+      const res = await usaNumberService.refreshOtp(item.id);
+      const newCode = normalizeOtpCode(res?.data?.otp_code);
+
+      setMine(prev => prev.map(m => m.id === item.id ? { ...m, otp_code: newCode } : m));
+
+      if (newCode) {
+        setSpotlight({
+          phone_number: item.phone_number,
+          service_name: getDisplayServiceLabel(item.service_name),
+          otp_code: newCode,
+          received_at: new Date().toISOString(),
+        });
+        addToast('Code refreshed!', 'success');
+      } else {
+        setSpotlight(null);
+      }
+    } catch (e: any) {
+      addToast(e.message || 'Refresh failed', 'error');
+      setSpotlight(null);
     } finally {
-      setPinLoading(false);
+      setRefreshing(p => ({ ...p, [item.id]: false }));
     }
   };
 
-
-
   const handleCopy = (text: string) => {
+    if (!text || text === '—') return;
     navigator.clipboard.writeText(text);
     addToast('Copied!', 'success');
   };
 
-  const activeOwnedNumber = useMemo(() => {
-    if (!activeStep) return null;
-    return mine.find((item) => item.id === activeStep.id) || null;
-  }, [activeStep, mine]);
+  /* ── derived ── */
+  const filteredAvailable = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return available;
+    return available.filter(a =>
+      a.service_name?.toLowerCase().includes(q) || a.category?.toLowerCase().includes(q)
+    );
+  }, [available, search]);
+
+  const serviceGroups = useMemo(() => groupByService(filteredAvailable), [filteredAvailable]);
+
+  /* ── step state based on actual data ── */
+  const stepState = {
+    bought: mine.length > 0,
+    waiting: mine.some(m => normalizeOtpCode(m.otp_code) === ''),
+    fetched: mine.some(m => normalizeOtpCode(m.otp_code) !== ''),
+  };
 
   return (
     <DashboardPageShell
-      title="USA Numbers"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'USA Numbers' },
-        { label: 'Beta' },
-      ]}
-      maxWidth={1240}
-      contentStyle={{ padding: '24px 20px 40px', maxWidth: 1240, margin: '0 auto' }}
+      title="USA Numbers Beta"
+      breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'USA Numbers Beta' }]}
+      noPadding={true}
     >
+      {/* ── Scoped styles — no inline S object ── */}
+      <style>{`
+        .unb-page         { padding: 28px 32px; max-width: 1200px; margin: 0 auto; width: 100%; }
+        /* Hero */
+        .unb-hero         { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+        .unb-hero-left    { flex: 1; min-width: 260px; }
+        .unb-beta-badge   { display: inline-flex; align-items: center; gap: 6px; background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 3px 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+        .unb-badge-dot    { width: 7px; height: 7px; border-radius: 50%; background: #2563EB; display: inline-block; }
+        .unb-hero h1      { font-size: 26px; font-weight: 800; color: #111827; line-height: 1.2; margin: 0 0 8px; }
+        .unb-hero p       { font-size: 13.5px; color: #6B7280; line-height: 1.7; margin: 0; }
+        .unb-hero strong  { font-weight: 700; color: #111827; }
+        /* Balance card */
+        .unb-bal-card     { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 18px 22px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.06); min-width: 240px; }
+        .unb-bal-icon     { width: 44px; height: 44px; border-radius: 12px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .unb-bal-label    { font-size: 11px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 2px; }
+        .unb-bal-amt      { font-size: 22px; font-weight: 800; color: #111827; margin: 0; }
+        .unb-topup-btn    { margin-left: auto; background: #111827; color: #fff; border: none; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .18s; font-family: inherit; }
+        .unb-topup-btn:hover { background: #2563EB; }
+        /* Spotlight + stats row */
+        .unb-spot-row     { display: grid; grid-template-columns: 1fr 280px; gap: 20px; margin-bottom: 28px; }
+        .unb-spot-card    { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px 28px; box-shadow: 0 2px 12px rgba(0,0,0,.05); position: relative; overflow: hidden; }
+        .unb-spot-glow    { position: absolute; top: -40px; right: -40px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(37,99,235,.08), transparent 70%); pointer-events: none; }
+        .unb-live-tag     { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #2563EB; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 16px; }
+        .unb-live-dot     { width: 8px; height: 8px; border-radius: 50%; background: #EF4444; animation: unb-pulse 1.5s ease-in-out infinite; }
+        @keyframes unb-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+        .unb-spot-label   { font-size: 12px; color: #9CA3AF; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; margin-bottom: 4px; }
+        .unb-spot-phone   { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 20px; }
+        .unb-otp-label    { font-size: 11px; color: #9CA3AF; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+        .unb-otp-code     { font-size: 44px; font-weight: 800; color: #111827; font-family: monospace; letter-spacing: .18em; line-height: 1; }
+        .unb-otp-meta     { margin-top: 20px; display: flex; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid #F3F4F6; gap: 8px; flex-wrap: wrap; }
+        .unb-otp-meta-txt { font-size: 12.5px; color: #6B7280; }
+        .unb-otp-meta-txt strong { color: #111827; }
+        .unb-copy-btn     { display: flex; align-items: center; gap: 6px; background: #F3F4F6; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; color: #374151; cursor: pointer; transition: all .18s; font-family: inherit; }
+        .unb-copy-btn:hover { background: #E0E7FF; color: #2563EB; }
+        /* Stat cards */
+        .unb-stat-col     { display: flex; flex-direction: column; gap: 16px; }
+        .unb-stat-card    { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 22px 24px; flex: 1; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+        .unb-live-chip    { display: inline-flex; align-items: center; gap: 4px; background: #ECFDF5; color: #059669; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700; margin-bottom: 8px; }
+        .unb-live-chip-dot { width: 6px; height: 6px; background: #10B981; border-radius: 50%; display: inline-block; }
+        .unb-stat-num     { font-size: 36px; font-weight: 800; color: #111827; line-height: 1; margin: 0 0 2px; }
+        .unb-stat-lbl     { font-size: 11.5px; color: #9CA3AF; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; margin: 0; }
+        /* Steps */
+        .unb-steps        { display: flex; align-items: center; gap: 0; margin-bottom: 32px; background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px 32px; box-shadow: 0 1px 6px rgba(0,0,0,.04); }
+        .unb-step         { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .unb-step-line    { flex: 0 0 60px; height: 1px; background: #E5E7EB; margin-top: -24px; }
+        .unb-step-num     { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+        .unb-step-num.done    { background: #2563EB; color: #fff; }
+        .unb-step-num.active  { background: #EFF6FF; color: #2563EB; border: 2px solid #2563EB; }
+        .unb-step-num.idle    { background: #F3F4F6; color: #9CA3AF; border: 2px solid #E5E7EB; }
+        .unb-step-title   { font-size: 13px; font-weight: 700; color: #111827; text-align: center; }
+        .unb-step-desc    { font-size: 11.5px; color: #9CA3AF; text-align: center; line-height: 1.4; }
+        /* Marketplace */
+        .unb-mkt-header   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+        .unb-mkt-header h2 { font-size: 18px; font-weight: 800; color: #111827; margin: 0 0 2px; }
+        .unb-mkt-header p  { font-size: 12.5px; color: #9CA3AF; margin: 0; }
+        .unb-search       { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; padding: 9px 14px; width: 220px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+        .unb-search input { border: none; outline: none; font-size: 13px; color: #374151; background: transparent; flex: 1; font-family: inherit; }
+        .unb-mkt-grid     { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .unb-mkt-card     { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px; cursor: pointer; box-shadow: 0 1px 6px rgba(0,0,0,.04); transition: border-color .2s, box-shadow .2s; }
+        .unb-mkt-card:hover { border-color: #2563EB; box-shadow: 0 4px 20px rgba(37,99,235,.1); }
+        .unb-mkt-top      { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .unb-svc-icon     { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .unb-mkt-price    { font-size: 16px; font-weight: 800; color: #111827; }
+        .unb-mkt-name     { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+        .unb-mkt-cat      { font-size: 11.5px; color: #6B7280; margin-bottom: 14px; }
+        .unb-mkt-badge    { font-size: 10.5px; color: #6B7280; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 999px; padding: 2px 8px; display: inline-block; margin-bottom: 12px; }
+        .unb-buy-btn      { width: 100%; background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .18s; font-family: inherit; }
+        .unb-buy-btn:hover:not(:disabled)  { background: #2563EB; color: #fff; border-color: #2563EB; }
+        .unb-buy-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .unb-empty-mkt    { grid-column: 1/-1; text-align: center; padding: 40px 24px; color: #9CA3AF; font-size: 14px; }
+        /* Active numbers */
+        .unb-active-hdr   { margin-bottom: 14px; }
+        .unb-active-hdr h2 { font-size: 18px; font-weight: 800; color: #111827; margin: 0 0 2px; }
+        .unb-active-hdr p  { font-size: 12.5px; color: #9CA3AF; margin: 0; }
+        .unb-num-row      { background: #fff; border: 1px solid #E5E7EB; border-radius: 14px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); flex-wrap: wrap; }
+        .unb-num-row.has-otp  { border-left: 3px solid #2563EB; }
+        .unb-num-icon     { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .unb-num-icon.otp-ready { background: #EFF6FF; color: #2563EB; }
+        .unb-num-icon.waiting   { background: #F3F4F6; color: #9CA3AF; }
+        .unb-num-info     { flex: 1; min-width: 140px; }
+        .unb-phone-row    { display: flex; align-items: center; gap: 6px; }
+        .unb-phone        { font-size: 14px; font-weight: 700; color: #2563EB; margin: 0 0 2px; }
+        .unb-eye-btn      { background: none; border: none; cursor: pointer; color: #9CA3AF; padding: 2px; display: flex; align-items: center; }
+        .unb-expiry       { font-size: 11.5px; color: #9CA3AF; }
+        .unb-chip         { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+        .unb-chip.verified  { background: #ECFDF5; color: #059669; }
+        .unb-chip.waiting   { background: #FFF7ED; color: #D97706; }
+        .unb-otp-pill     { font-family: monospace; font-size: 20px; font-weight: 800; color: #111827; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 8px 18px; }
+        .unb-fetch-btn    { background: #111827; color: #fff; border: none; border-radius: 9px; padding: 9px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .18s; white-space: nowrap; }
+        .unb-fetch-btn:hover:not(:disabled) { background: #2563EB; }
+        .unb-fetch-btn:disabled { opacity: .6; cursor: not-allowed; }
+        .unb-icon-btn     { background: transparent; border: none; padding: 8px; cursor: pointer; border-radius: 8px; display: flex; align-items: center; transition: background .15s; }
+        .unb-icon-btn.archive:hover { background: #F3F4F6; }
+        .unb-icon-btn.delete:hover  { background: #FEF2F2; }
+        .unb-icon-btn.archive { color: #9CA3AF; }
+        .unb-icon-btn.delete  { color: #EF4444; }
+        .unb-spacer       { flex: 1; }
+        .unb-empty        { text-align: center; padding: 48px 24px; color: #9CA3AF; font-size: 14px; }
+        .unb-loading-row  { display: flex; gap: 10px; padding: 20px 0; }
+        .unb-skel         { background: #F3F4F6; border-radius: 12px; animation: unb-skel 1.2s ease-in-out infinite; }
+        @keyframes unb-skel { 0%,100%{opacity:1} 50%{opacity:.4} }
+        /* Responsive */
+        @media (max-width: 900px) {
+          .unb-spot-row   { grid-template-columns: 1fr; }
+          .unb-steps      { flex-wrap: wrap; gap: 16px; padding: 16px; }
+          .unb-step-line  { display: none; }
+          .unb-hero       { flex-direction: column; }
+          .unb-search     { width: 100%; }
+        }
+        @media (max-width: 600px) {
+          .unb-page       { padding: 16px; }
+          .unb-mkt-grid   { grid-template-columns: 1fr; }
+          .unb-num-row    { flex-direction: column; align-items: flex-start; }
+        }
+      `}</style>
+
       <PinModal
-        isOpen={pinModalOpen}
-        onClose={() => {
-          setPinModalOpen(false);
-          setSelectedNumber(null);
-        }}
+        isOpen={pinOpen}
+        onClose={() => setPinOpen(false)}
         onSuccess={handlePinSuccess}
         isLoading={pinLoading}
-        title={!user?.hasPin ? 'Set Your Transaction PIN' : 'Confirm USA Number Purchase'}
-        description={
-          !user?.hasPin
-            ? "You haven't set a transaction PIN yet. Create one to secure USA number purchases."
-            : `Enter your 4-digit PIN to buy ${selectedNumber?.phone_number || 'this number'} for ${formatMoney(selectedNumber?.sell_price || 0)}.`
-        }
+        title="Confirm Purchase"
+        description={`Buy ${selectedNum?.phone_number} for ${formatMoney(selectedNum?.sell_price || 0)}`}
       />
 
-      <section className="overview-card">
-        <div className="overview-copy">
-          <div className="hero-kicker">Guided flow</div>
-          <div className="title-row">
-            <h1>USA Numbers</h1>
-            <span className="beta-pill">Beta</span>
-          </div>
-          <p>
-            Buy a number, enter it inside the service you want, then come back here to fetch the code. The layout is
-            now focused on that exact path so it feels calmer and easier to use.
-          </p>
-          <div className="overview-actions">
-            <div className="wallet-chip">
-              <RiWalletLine size={16} />
-              Wallet Balance: {formatMoney(user?.balance)}
+      <div className="unb-page">
+
+        {/* ── Hero ── */}
+        <div className="unb-hero">
+          <div className="unb-hero-left">
+            <div className="unb-beta-badge">
+              <span className="unb-badge-dot" />
+              BETA
             </div>
-            <Link href="/dashboard/user/numbers-history" className="inline-link">
-              Open full history <RiArrowRightLine size={15} />
-            </Link>
+            <h1>USA Numbers Beta</h1>
+            <p>
+              Secure high-tier USA virtual numbers for instant service verification.<br />
+              Follow our <strong>Buy → Input → Fetch</strong> workflow to receive codes for major services in seconds.
+            </p>
+          </div>
+          <div className="unb-bal-card">
+            <div className="unb-bal-icon">
+              <RiWalletLine size={22} />
+            </div>
+            <div>
+              <p className="unb-bal-label">Current Balance</p>
+              <p className="unb-bal-amt">{formatMoney(user?.balance)}</p>
+            </div>
+            <button className="unb-topup-btn">Top Up</button>
           </div>
         </div>
 
-        <div className="spotlight-card">
-          <div className="spotlight-kicker">Latest code</div>
-          <div className="spotlight-number">{latestResult?.phone || activeStep?.phone_number || 'Your next USA purchase appears here'}</div>
-          <div className="spotlight-otp">{latestResult?.otp || activeStep?.otp_code || '------'}</div>
-          <div className="spotlight-note">When your code arrives, it shows here first and also stays in your owned numbers list.</div>
-        </div>
-      </section>
+        {/* ── OTP Spotlight + Stats ── */}
+        <div className="unb-spot-row">
+          <div className="unb-spot-card">
+            <div className="unb-spot-glow" />
+            <div className="unb-live-tag">
+              <span className="unb-live-dot" />
+              Latest Incoming Code
+            </div>
+            <p className="unb-spot-label">Phone Number</p>
+            <p className="unb-spot-phone">
+              {spotlight?.phone_number || (mine[0]?.phone_number) || '+1 (000) 000-0000'}
+            </p>
+            <div>
+              <p className="unb-otp-label">OTP Code</p>
+              <p className="unb-otp-code">
+                {spotlight?.otp_code || '— — — — — —'}
+              </p>
+            </div>
+            <div className="unb-otp-meta">
+              <span className="unb-otp-meta-txt">
+                Service:{' '}
+                <strong>{spotlight?.service_name || getDisplayServiceLabel(mine[0]?.service_name) || '—'}</strong>
+                {spotlight?.received_at && (
+                  <> · Received just now</>
+                )}
+              </span>
+              <button
+                className="unb-copy-btn"
+                onClick={() => handleCopy(spotlight?.otp_code || '')}
+              >
+                <RiFileCopyLine size={14} /> Copy Code
+              </button>
+            </div>
+          </div>
 
-      <section className="step-shell">
-        <div className="step-head">
+          <div className="unb-stat-col">
+            <div className="unb-stat-card">
+              <div className="unb-live-chip">
+                <span className="unb-live-chip-dot" />
+                LIVE
+              </div>
+              <p className="unb-stat-num">{loading ? '—' : available.length.toLocaleString()}</p>
+              <p className="unb-stat-lbl">Available Numbers</p>
+            </div>
+            <div className="unb-stat-card">
+              <p style={{ fontSize: 22, marginBottom: 6 }}>⭐</p>
+              <p className="unb-stat-num">{loading ? '—' : mine.length}</p>
+              <p className="unb-stat-lbl">Owned Numbers</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Workflow Steps — state reflects actual API data ── */}
+        <div className="unb-steps">
+          {[
+            {
+              n: 1,
+              title: 'Buy Number',
+              desc: 'Select service & pay',
+              state: stepState.bought ? 'done' : 'active',
+            },
+            {
+              n: 2,
+              title: 'Input Number',
+              desc: 'Paste into your app',
+              state: stepState.bought ? (stepState.fetched ? 'done' : 'active') : 'idle',
+            },
+            {
+              n: 3,
+              title: 'Fetch Code',
+              desc: 'Get OTP verification',
+              state: stepState.fetched ? 'done' : 'idle',
+            },
+          ].map((s, i, arr) => (
+            <React.Fragment key={s.n}>
+              <div className="unb-step">
+                <div className={`unb-step-num ${s.state}`}>{s.n}</div>
+                <p className="unb-step-title">{s.title}</p>
+                <p className="unb-step-desc">{s.desc}</p>
+              </div>
+              {i < arr.length - 1 && <div className="unb-step-line" />}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* ── Marketplace — driven entirely by real API data ── */}
+        <div className="unb-mkt-header">
           <div>
-            <div className="section-kicker">Step By Step</div>
-            <h2>How the USA beta flow works</h2>
+            <h2>Marketplace</h2>
+            <p>Instant delivery for any platform</p>
+          </div>
+          <div className="unb-search">
+            <RiSearchLine size={16} color="#9CA3AF" />
+            <input
+              placeholder="Search service..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="step-grid">
-          <article className={`step-card ${activeStep ? 'done' : ''}`}>
-            <span className="step-index">01</span>
-            <h3>Buy your number</h3>
-            <p>Pick any available USA number below and confirm the wallet payment with your PIN.</p>
-          </article>
-          <article className={`step-card ${activeStep ? 'active' : ''}`}>
-            <span className="step-index">02</span>
-            <h3>Input it in the service</h3>
-            <p>Use the number in WhatsApp or the assigned service, then return here when the app asks for the code.</p>
-          </article>
-          <article className={`step-card ${activeStep?.otp_code ? 'done' : activeStep ? 'active' : ''}`}>
-            <span className="step-index">03</span>
-            <h3>Fetch your code</h3>
-            <p>Tap the confirmation button and we will request the code from the saved link and show it like before.</p>
-          </article>
+        <div className="unb-mkt-grid">
+          {loading ? (
+            [1, 2, 3, 4].map(k => (
+              <div key={k} className="unb-skel" style={{ height: 180 }} />
+            ))
+          ) : serviceGroups.length === 0 ? (
+            <div className="unb-empty-mkt">
+              {search ? `No services matching "${search}"` : 'No numbers available right now.'}
+            </div>
+          ) : (
+            serviceGroups.map(({ service_name, category, count, cheapest }) => {
+              const { icon, color, bg } = getServiceVisual(service_name);
+              return (
+                <div key={service_name} className="unb-mkt-card">
+                  <div className="unb-mkt-top">
+                    <div className="unb-svc-icon" style={{ background: bg, color }}>
+                      {icon}
+                    </div>
+                    <span className="unb-mkt-price">{formatMoney(cheapest.sell_price)}</span>
+                  </div>
+                  <p className="unb-mkt-name">{service_name}</p>
+                  <p className="unb-mkt-cat">{category}</p>
+                  <span className="unb-mkt-badge">{count} in stock</span>
+                  <button
+                    className="unb-buy-btn"
+                    onClick={() => handleBuy(cheapest)}
+                  >
+                    Buy With Balance
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
-      </section>
 
-      <section className="summary-grid">
-        <article className="summary-card">
-          <div className="summary-icon primary"><RiPriceTag3Line size={20} /></div>
-          <div className="summary-label">Available now</div>
-          <div className="summary-value">{available.length}</div>
-        </article>
-        <article className="summary-card">
-          <div className="summary-icon emerald"><RiFlashlightLine size={20} /></div>
-          <div className="summary-label">Owned by you</div>
-          <div className="summary-value">{mine.length}</div>
-        </article>
-        <article className="summary-card">
-          <div className="summary-icon amber"><RiHistoryLine size={20} /></div>
-          <div className="summary-label">Current status</div>
-          <div className="summary-caption">{activeStep ? 'You have an active number waiting for a code.' : 'No number is waiting right now.'}</div>
-        </article>
-      </section>
-
-      <section className="market-shell">
-        <div className="section-head">
-          <div>
-            <div className="section-kicker">Live List</div>
-            <h2>Available USA Numbers</h2>
-          </div>
-          <button className="btn-secondary" type="button" onClick={fetchData}>Refresh List</button>
+        {/* ── Active Numbers — all from mine[] ── */}
+        <div className="unb-active-hdr">
+          <h2>Your Active Numbers</h2>
+          <p>Numbers ready for verification</p>
         </div>
 
         {loading ? (
-          <div className="empty-state">Loading USA numbers beta...</div>
-        ) : available.length === 0 ? (
-          <div className="empty-state">No USA numbers are available right now.</div>
+          <div className="unb-empty">Loading your numbers…</div>
+        ) : mine.length === 0 ? (
+          <div className="unb-empty">
+            <RiMessage3Line size={36} style={{ marginBottom: 10, opacity: 0.3 }} />
+            <p>No active numbers yet. Buy one from the marketplace above.</p>
+          </div>
         ) : (
-          <div className="market-grid">
-            {available.map((item) => (
-              <article key={item.id} className="market-card">
-                <div className="market-card-head">
-                  <div>
-                    <div className="country-chip">{item.category || 'USA'}</div>
-                    <div className="market-number">Available Number</div>
-                    <div className="service-name">{item.service_name || 'USA Number'}</div>
-                  </div>
-                  <div className="price-tag">{formatMoney(item.sell_price)}</div>
+          mine.map(item => {
+            const otpCode = normalizeOtpCode(item.otp_code);
+            const hasOtp = otpCode !== '';
+            const revealed = !!revealedMap[item.id];
+            const masked = `${item.phone_number.slice(0, 6)}****${item.phone_number.slice(-2)}`;
+            const isRefreshing = refreshing[item.id];
+
+            return (
+              <div key={item.id} className={`unb-num-row${hasOtp ? ' has-otp' : ''}`}>
+                <div className={`unb-num-icon ${hasOtp ? 'otp-ready' : 'waiting'}`}>
+                  {hasOtp
+                    ? <RiCheckboxCircleLine size={18} />
+                    : <RiMessage3Line size={18} />
+                  }
                 </div>
-                <p>{item.notes || 'Buy first, use the number in the service, then come back here to fetch the code.'}</p>
-                <button className="btn-primary buy-btn" type="button" onClick={() => handleBuyClick(item)}>
-                  <RiRocketLine size={16} />
-                  Buy With Balance
-                </button>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
 
-      <section className="history-shell" ref={ownedSectionRef}>
-        <div className="section-head">
-          <div>
-            <div className="section-kicker">Owned Numbers</div>
-            <h2>Your USA Numbers Beta</h2>
-          </div>
-          <Link href="/dashboard/user/numbers-history" className="btn-secondary">
-            Open Full History
-          </Link>
-        </div>
-
-        {mine.length === 0 ? (
-          <div className="empty-state">You have not purchased any USA beta numbers yet.</div>
-        ) : (
-          <div className="owned-grid">
-            {mine.slice(0, 4).map((item) => {
-              const isVisible = !!revealedOwned[item.id];
-              const isActive = activeOwnedNumber?.id === item.id;
-
-              return (
-                <article key={item.id} className={`owned-card ${isActive ? 'owned-card-active' : ''}`}>
-                  <div className="owned-head">
-                    <div>
-                      <div className="country-chip">{item.category || 'USA'}</div>
-                      <div className="market-number">
-                        {isVisible ? item.phone_number : `${item.phone_number.slice(0, 5)}•••••${item.phone_number.slice(-2)}`}
-                      </div>
-                      <div className="service-name">{item.service_name || 'USA Number'}</div>
-                    </div>
+                <div className="unb-num-info">
+                  <div className="unb-phone-row">
+                    <p className="unb-phone">{revealed ? item.phone_number : masked}</p>
                     <button
-                      className="btn-ghost owned-toggle"
-                      type="button"
-                      onClick={() => setRevealedOwned((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                      className="unb-eye-btn"
+                      onClick={() => setRevealedMap(p => ({ ...p, [item.id]: !p[item.id] }))}
                     >
-                      {isVisible ? <RiEyeOffLine size={16} /> : <RiEyeLine size={16} />}
-                      {isVisible ? 'Hide' : 'Show'}
+                      {revealed ? <RiEyeOffLine size={14} /> : <RiEyeLine size={14} />}
+                    </button>
+                    <button
+                      className="unb-eye-btn"
+                      onClick={() => handleCopy(item.phone_number)}
+                      title="Copy number"
+                    >
+                      <RiFileCopyLine size={13} />
                     </button>
                   </div>
+                  <p className="unb-expiry">
+                    {getDisplayServiceLabel(item.service_name)} · Expires in: {getExpiry(item.sold_at)}
+                  </p>
+                </div>
 
-                  <div className="owned-meta">
-                    <div className="subtle-meta">
-                      <RiTimeLine size={14} />
-                      {item.sold_at ? new Date(item.sold_at).toLocaleDateString() : '—'}
-                    </div>
-                    <div className="price-tag small">{formatMoney(item.sell_price)}</div>
-                  </div>
+                <span className={`unb-chip ${hasOtp ? 'verified' : 'waiting'}`}>
+                  {hasOtp
+                    ? <><RiCheckboxCircleLine size={12} /> Verified</>
+                    : <><RiRefreshLine size={12} /> Checking…</>
+                  }
+                </span>
 
-                  <div className="otp-panel">
-                    <span className="otp-label">OTP</span>
-                    <div className="otp-inline">
-                      <span className="mono-strong">{item.otp_code || 'Waiting...'}</span>
-                      {item.otp_code && (
-                        <button className="copy-btn" type="button" onClick={() => handleCopy(item.otp_code || '')}>
-                          <RiFileCopyLine size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                <span className="unb-spacer" />
 
-                  {isActive && (
-                    <div className="owned-step-panel">
-                      <div className="owned-step-copy">
-                        <div className="owned-step-title">Next step</div>
-                        <p>
-                          Input this number in {item.category || item.service_name || 'the service'}, then return here and click
-                          <strong> I have inputed the number</strong> to fetch the code.
-                        </p>
-                      </div>
+                {hasOtp && (
+                  <div className="unb-otp-pill">{otpCode}</div>
+                )}
 
-                      <div className="owned-step-tags">
-                        <span>{item.category || 'USA'}</span>
-                        <span>{item.service_name || 'USA Number'}</span>
-                        {item.otp_code ? <span className="success-tag"><RiCheckLine size={14} /> Code received</span> : <span>Waiting for code</span>}
-                      </div>
+                <button
+                  className="unb-fetch-btn"
+                  disabled={isRefreshing}
+                  onClick={() => {
+                    setSpotlight({
+                      phone_number: item.phone_number,
+                      service_name: getDisplayServiceLabel(item.service_name),
+                      otp_code: normalizeOtpCode(item.otp_code),
+                    });
+                    handleRefreshOtp(item);
+                  }}
+                >
+                  {isRefreshing ? 'Fetching…' : 'Fetch Now'}
+                </button>
 
-                      <div className="owned-step-actions">
-                        {!!item.redirect_url && (
-                          <a href={item.redirect_url} target="_blank" rel="noreferrer" className="btn-secondary service-link">
-                            <RiExternalLinkLine size={16} />
-                            Open Service
-                          </a>
-                        )}
-                        {!item.otp_code && (
-                          <div className="stack" style={{ gap: '10px', marginTop: '10px' }}>
-                            <button
-                              className="btn-primary inline-fetch"
-                              type="button"
-                              onClick={() => handleRefreshOtp(item.id)}
-                              disabled={fetchingOtpId === item.id}
-                            >
-                              {fetchingOtpId === item.id ? <RiLoader4Line size={16} className="spin" /> : <RiCheckLine size={16} />}
-                              {fetchingOtpId === item.id ? 'Checking for code...' : 'I have inputed the number'}
-                            </button>
-                            
-                            <button
-                              className={`btn-secondary ${autoRefresh ? 'active-pulse' : ''}`}
-                              type="button"
-                              onClick={() => setAutoRefresh(!autoRefresh)}
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                            >
-                              <RiLoader4Line size={16} className={autoRefresh ? 'spin' : ''} />
-                              {autoRefresh ? 'Auto-refreshing...' : 'Enable Auto-refresh'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-          </div>
+                <button className="unb-icon-btn archive" title="Archive">
+                  <RiArchiveLine size={18} />
+                </button>
+                <button className="unb-icon-btn delete" title="Delete">
+                  <RiDeleteBinLine size={18} />
+                </button>
+              </div>
+            );
+          })
         )}
-      </section>
 
-      <style jsx>{`
-        .overview-card,
-        .step-shell,
-        .summary-card,
-        .market-shell,
-        .history-shell {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-2);
-          box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
-        }
-        .overview-card,
-        .step-shell,
-        .market-shell,
-        .history-shell {
-          border-radius: 28px;
-          padding: 30px;
-        }
-        .overview-card {
-          display: grid;
-          grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.88fr);
-          gap: 24px;
-          background:
-            radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 28%),
-            linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        }
-        .overview-copy {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          max-width: 720px;
-        }
-        .hero-kicker, .section-kicker, .summary-label, .spotlight-kicker, .otp-label {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          font-weight: 800;
-          color: var(--color-primary);
-        }
-        .title-row, .overview-actions, .section-head, .market-card-head, .owned-head, .owned-meta, .otp-inline, .step-head, .action-buttons, .action-tags {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .title-row, .section-head, .step-head {
-          justify-content: space-between;
-          flex-wrap: wrap;
-        }
-        h1, h2, h3 {
-          color: var(--color-text);
-        }
-        h1 {
-          font-size: clamp(2rem, 3vw, 2.6rem);
-          line-height: 1.05;
-        }
-        h2 {
-          font-size: clamp(1.5rem, 2.4vw, 2rem);
-          margin-top: 8px;
-        }
-        h3 {
-          font-size: 1.05rem;
-          margin-top: 10px;
-        }
-        p {
-          color: var(--color-text-faint);
-          line-height: 1.7;
-        }
-        .beta-pill {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 34px;
-          padding: 0 16px;
-          border-radius: 999px;
-          background: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(14, 165, 233, 0.22));
-          color: var(--color-primary);
-          border: 1px solid rgba(37, 99, 235, 0.12);
-          font-size: 0.78rem;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-        }
-        .wallet-chip, .inline-link, .country-chip, .price-tag, .btn-primary, .btn-secondary, .btn-ghost, .copy-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .wallet-chip {
-          padding: 10px 14px;
-          border-radius: 999px;
-          background: var(--color-primary-dim);
-          color: var(--color-primary);
-          font-weight: 700;
-        }
-        .inline-link {
-          min-height: 42px;
-          padding: 0 14px;
-          border-radius: 999px;
-          text-decoration: none;
-          color: var(--color-text);
-          background: rgba(15, 23, 42, 0.04);
-          font-weight: 700;
-        }
-        .spotlight-card {
-          border-radius: 24px;
-          padding: 24px;
-          background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, rgba(14, 165, 233, 0.04) 100%);
-          border: 1px solid rgba(37, 99, 235, 0.1);
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          gap: 12px;
-        }
-        .spotlight-number {
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--color-text);
-        }
-        .spotlight-otp, .mono-strong {
-          font-family: monospace;
-          font-size: 1.2rem;
-          font-weight: 800;
-          color: var(--color-primary);
-        }
-        .spotlight-note, .summary-caption {
-          font-size: 0.92rem;
-          color: var(--color-text-faint);
-        }
-        .step-shell {
-          margin-top: 24px;
-          background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-        }
-        .step-grid {
-          margin-top: 20px;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 18px;
-        }
-        .step-card {
-          min-height: 180px;
-          border-radius: 24px;
-          padding: 22px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          background: linear-gradient(180deg, #ffffff, #fafcff);
-        }
-        .step-card.active {
-          border-color: rgba(37, 99, 235, 0.2);
-          box-shadow: 0 10px 26px rgba(37, 99, 235, 0.08);
-        }
-        .step-card.done {
-          background: linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.03));
-        }
-        .step-index {
-          display: inline-flex;
-          min-width: 42px;
-          height: 42px;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: rgba(37, 99, 235, 0.08);
-          color: var(--color-primary);
-          font-weight: 800;
-        }
-        .owned-step-tags {
-          flex-wrap: wrap;
-        }
-        .owned-step-tags span {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          min-height: 36px;
-          padding: 0 12px;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.05);
-          color: var(--color-text);
-          font-size: 0.86rem;
-          font-weight: 700;
-        }
-        .success-tag {
-          color: #047857 !important;
-          background: rgba(16, 185, 129, 0.1) !important;
-        }
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 18px;
-          margin-top: 24px;
-        }
-        .summary-card {
-          border-radius: 24px;
-          padding: 22px;
-        }
-        .summary-icon {
-          width: 46px;
-          height: 46px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 18px;
-        }
-        .summary-icon.primary {
-          color: var(--color-primary);
-          background: var(--color-primary-dim);
-        }
-        .summary-icon.emerald {
-          color: #047857;
-          background: rgba(16, 185, 129, 0.1);
-        }
-        .summary-icon.amber {
-          color: #b45309;
-          background: rgba(245, 158, 11, 0.12);
-        }
-        .summary-value {
-          margin-top: 8px;
-          font-size: 1.9rem;
-          font-weight: 800;
-        }
-        .market-shell, .history-shell {
-          margin-top: 24px;
-        }
-        .market-grid, .owned-grid {
-          margin-top: 20px;
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-          gap: 18px;
-        }
-        .market-card, .owned-card {
-          border-radius: 22px;
-          border: 1px solid var(--color-border);
-          background: linear-gradient(180deg, #ffffff, #fbfdff);
-          padding: 22px;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 18px rgba(15, 23, 42, 0.03);
-        }
-        .owned-card-active {
-          border-color: rgba(37, 99, 235, 0.18);
-          box-shadow: 0 10px 26px rgba(37, 99, 235, 0.08);
-        }
-        .owned-step-panel {
-          margin-top: 14px;
-          padding: 16px;
-          border-radius: 18px;
-          border: 1px solid rgba(37, 99, 235, 0.12);
-          background: linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(14, 165, 233, 0.03));
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .owned-step-copy {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .owned-step-title {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          font-weight: 800;
-          color: var(--color-primary);
-        }
-        .owned-step-copy p strong {
-          color: var(--color-text);
-        }
-        .owned-step-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .country-chip {
-          padding: 6px 10px;
-          border-radius: 999px;
-          background: rgba(37, 99, 235, 0.08);
-          color: var(--color-primary);
-          font-size: 0.78rem;
-          font-weight: 700;
-        }
-        .market-number {
-          margin-top: 12px;
-          font-size: 1.1rem;
-          font-weight: 800;
-        }
-        .service-name {
-          margin-top: 4px;
-          font-size: 0.88rem;
-          color: var(--color-text-faint);
-        }
-        .price-tag {
-          padding: 10px 12px;
-          border-radius: 16px;
-          background: rgba(16, 185, 129, 0.08);
-          color: #047857;
-          font-weight: 800;
-        }
-        .small {
-          padding: 8px 10px;
-          font-size: 0.85rem;
-        }
-        .market-card p {
-          margin: 14px 0;
-        }
-        .btn-primary, .btn-secondary, .btn-ghost, .copy-btn {
-          justify-content: center;
-          min-height: 46px;
-          padding: 11px 16px;
-          border-radius: 16px;
-          border: 1px solid transparent;
-          cursor: pointer;
-          text-decoration: none;
-          font-weight: 700;
-        }
-        .btn-primary {
-          background: var(--color-primary);
-          color: #fff;
-        }
-        .btn-secondary {
-          background: #fff;
-          color: var(--color-text);
-          border-color: var(--color-border);
-        }
-        .btn-ghost, .copy-btn {
-          background: rgba(15, 23, 42, 0.04);
-          color: var(--color-text);
-        }
-        .btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-ghost:focus-visible, .copy-btn:focus-visible, .inline-link:focus-visible, .service-link:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
-        }
-        .buy-btn, .service-link, .inline-fetch {
-          width: 100%;
-        }
-        .otp-panel {
-          margin-top: 14px;
-          padding: 14px;
-          border-radius: 16px;
-          background: var(--color-bg);
-        }
-        .subtle-meta {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--color-text-faint);
-          font-size: 0.85rem;
-        }
-        .inline-fetch {
-          margin-top: 12px;
-        }
-        .empty-state {
-          margin-top: 18px;
-          padding: 30px;
-          border-radius: 20px;
-          border: 1px dashed var(--color-border);
-          color: var(--color-text-faint);
-          text-align: center;
-          background: rgba(255, 255, 255, 0.72);
-        }
-        .spin {
-          animation: spin 0.9s linear infinite;
-        }
-        .active-pulse {
-          border-color: var(--color-primary);
-          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
-          background: rgba(37, 99, 235, 0.05);
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @media (max-width: 1080px) {
-          .overview-card,
-          .step-grid,
-          .summary-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-        @media (max-width: 768px) {
-          .overview-card,
-          .step-shell,
-          .market-shell,
-          .history-shell {
-            padding: 22px;
-          }
-          .overview-actions,
-          .section-head,
-          .owned-head,
-          .owned-meta,
-          .otp-inline {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .btn-primary,
-          .btn-secondary,
-          .service-link,
-          .inline-fetch {
-            width: 100%;
-          }
-        }
-      `}</style>
+      </div>
     </DashboardPageShell>
   );
 }

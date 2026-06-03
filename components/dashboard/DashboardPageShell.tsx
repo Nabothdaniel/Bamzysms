@@ -16,50 +16,38 @@ interface DashboardPageShellProps {
   breadcrumbs?: DashboardBreadcrumbItem[];
   maxWidth?: number;
   contentStyle?: React.CSSProperties;
+  className?: string;
+  noPadding?: boolean;
 }
 
 export default function DashboardPageShell({
   title,
   children,
   breadcrumbs,
-  maxWidth = 1000,
+  maxWidth = 1440,
   contentStyle,
+  className,
+  noPadding = false,
 }: DashboardPageShellProps) {
   return (
     <DashboardLayout>
       <Topbar title={title} />
       <main
-        style={{
-          padding: '28px',
-          maxWidth,
-          margin: '0 auto',
-          ...contentStyle,
-        }}
+        className={`${noPadding ? '' : 'px-4 py-6 md:px-8 md:py-8'} w-full ${className || ''}`}
+        style={contentStyle}
       >
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <div
-            className="breadcrumb"
-            style={{
-              marginBottom: 24,
-              fontSize: '0.85rem',
-              color: 'var(--color-text-faint)',
-              display: 'flex',
-              gap: 8,
-              fontWeight: 600,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="flex flex-wrap gap-2 mb-6 text-[0.85rem] font-semibold text-slate-400">
             {breadcrumbs.map((item, index) => {
               const isLast = index === breadcrumbs.length - 1;
-
               return (
                 <React.Fragment key={`${item.label}-${index}`}>
                   {item.href && !isLast ? (
-                    <Link href={item.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <Link href={item.href} className="text-inherit hover:text-primary transition-colors">
                       {item.label}
                     </Link>
                   ) : (
-                    <span style={isLast ? { color: 'var(--color-primary)' } : undefined}>{item.label}</span>
+                    <span className={isLast ? 'text-primary' : ''}>{item.label}</span>
                   )}
                   {!isLast && <span>/</span>}
                 </React.Fragment>

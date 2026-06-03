@@ -75,21 +75,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .sidebar-wrapper {
           z-index: 1001;
         }
 
         @media (max-width: 1024px) {
+          .admin-container { overflow: visible !important; }
           .sidebar-wrapper {
             position: fixed;
             left: 0;
             top: 0;
+            bottom: 0;
             transform: translateX(-100%);
           }
           .sidebar-wrapper.mobile-open {
             transform: translateX(0);
           }
+          .admin-main-content { overflow-x: hidden; }
         }
 
         .mobile-sidebar-overlay {

@@ -38,7 +38,7 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="flex flex-col gap-4">
       <PinModal
         isOpen={logic.pinModalOpen}
         onClose={() => logic.setPinModalOpen(false)}
@@ -52,7 +52,7 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
       />
 
       <div className="stat-card">
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', marginBottom: 20 }}>
+        <h2 className="font-display font-bold text-base mb-5">
           Buy {logic.country?.eng || 'SMS'} Number
         </h2>
 
@@ -60,7 +60,7 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
           <StatusBanner message={logic.purchaseError} onClose={() => logic.setPurchaseError(null)} />
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="flex flex-col gap-3.5">
           <CountryDropdown
             countries={logic.countries}
             selectedCountryId={logic.selectedCountryId}
@@ -84,12 +84,7 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
           />
 
           {logic.selectedServiceCode && logic.selectedCountryId !== null && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 14px', borderRadius: 10,
-              background: 'var(--color-primary-dim)', border: '1px solid var(--color-primary-glow)',
-              minHeight: '42px',
-            }}>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[var(--color-primary-dim)] border border-[var(--color-primary-glow)] min-h-[42px]">
               {logic.checkingPrice ? (
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-text-faint)' }}>Checking availability...</span>
               ) : logic.priceInfo?.available ? (
@@ -110,11 +105,8 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
           )}
 
           {logic.priceInfo?.available && (
-            <div style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-              padding: '12px 14px', background: 'var(--color-bg-1)', borderRadius: 12, border: '1px solid var(--color-border)' 
-            }}>
-              <label style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Quantity</label>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-bg-1)] border border-[var(--color-border)]">
+              <label className="text-sm font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Quantity</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <button 
                   onClick={logic.decrementQuantity}
@@ -160,8 +152,7 @@ export default function BuyNumbers({ defaultCountry = 'USA', lockCountry = false
           <button
             onClick={logic.handleBuy}
             disabled={logic.loading || !logic.selectedServiceCode || logic.checkingPrice || !logic.priceInfo?.available}
-            className="btn-primary"
-            style={{ padding: '14px', width: '100%', fontSize: '0.95rem', opacity: (!logic.selectedServiceCode || logic.checkingPrice || !logic.priceInfo?.available) ? 0.5 : 1, gap: 8, marginTop: 4 }}
+            className="btn-primary p-3.5 w-full text-sm disabled:opacity-50 gap-2 mt-1"
           >
             {logic.loading ? 'Processing...' : <><RiShoppingCartLine size={18} /> Buy {logic.quantity > 1 ? `${logic.quantity} Numbers` : 'Number'}</>}
           </button>

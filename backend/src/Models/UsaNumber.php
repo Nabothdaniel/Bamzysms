@@ -191,7 +191,7 @@ class UsaNumber {
 
     public function getOwnedByUser(int $userId): array {
         $stmt = $this->db->prepare("
-            SELECT id, phone_number, service_name, category, redirect_url, sell_price, notes, otp_code, sold_at, created_at
+            SELECT id, phone_number, service_name, category, sell_price, notes, otp_code, otp_code_normalized, sold_at, created_at
             FROM usa_numbers
             WHERE sold_to = ?
             ORDER BY sold_at DESC, created_at DESC
@@ -272,7 +272,6 @@ class UsaNumber {
                 'phone_number' => $number['phone_number'],
                 'service_name' => $number['service_name'],
                 'category' => $number['category'],
-                'redirect_url' => $number['redirect_url'],
                 'sell_price' => $price,
                 'otp_code' => '',
                 'new_balance' => $balance - $price,
@@ -296,12 +295,14 @@ class UsaNumber {
         }
 
         $otp = $this->fetchOtpFromUrl($number['redirect_url'] ?? '');
+        $normalizedOtp = $this->normalizeOtpCode($otp);
 
-        if ($otp !== '') {
-            $this->db->prepare("UPDATE usa_numbers SET otp_code = ? WHERE id = ?")->execute([$otp, $numberId]);
+        if ($normalizedOtp !== '') {
+            $this->db->prepare("UPDATE usa_numbers SET otp_code = ?, otp_code_normalized = ? WHERE id = ?")
+                ->execute([$normalizedOtp, $normalizedOtp, $numberId]);
         }
 
-        return $otp;
+        return $normalizedOtp;
     }
 
     /* ------------------------------------------------------------------ */
@@ -314,9 +315,14 @@ class UsaNumber {
         try {
             $ctx = stream_context_create([
                 'http' => [
-                    'timeout' => 10,
+                    'timeout' => 12,
                     'method' => 'GET',
-                    'header' => "User-Agent: BamzySMS/1.0\r\n",
+                    'header' => implode("\r\n", [
+                        'User-Agent: Mozilla/5.0 (compatible; BamzySMS/1.0; +https://bamzysms.com)',
+                        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language: en-US,en;q=0.9',
+                        'Cache-Control: no-cache',
+                    ]),
                     'ignore_errors' => true,
                 ],
                 'ssl' => [
@@ -326,15 +332,12 @@ class UsaNumber {
             ]);
 
             $response = @file_get_contents($url, false, $ctx);
-
             if ($response === false) return '';
 
             $body = trim($response);
-
-            // If the body is pure JSON, try to extract common OTP fields
             $json = json_decode($body, true);
             if (is_array($json)) {
-                return (string)(
+                $candidate = (string)(
                     $json['otp'] ??
                     $json['code'] ??
                     $json['pin'] ??
@@ -343,17 +346,75 @@ class UsaNumber {
                     $json['data']['code'] ??
                     $body
                 );
+                return $this->normalizeOtpCode($candidate);
             }
 
-            // Otherwise return raw body (trimmed)
-            return $body;
+            $plainText = $this->extractVisibleText($body);
+            $translated = $this->translateIfNeeded($plainText);
+            $candidate = $translated !== '' ? $translated : $plainText;
+
+            return $this->normalizeOtpCode($candidate);
         } catch (\Throwable $e) {
             return '';
         }
     }
 
+    private function extractVisibleText(string $html): string {
+        $text = strip_tags($html);
+        $text = preg_replace('/\s+/u', ' ', $text) ?? '';
+        return trim($text);
+    }
+
+    private function translateIfNeeded(string $text): string {
+        if ($text === '') return '';
+
+        $hasCjk = preg_match('/[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]/u', $text) === 1;
+        if (!$hasCjk) return '';
+
+        $encoded = rawurlencode($text);
+        $translateUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' . $encoded;
+
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => 8,
+                'method' => 'GET',
+                'header' => "User-Agent: BamzySMS/1.0\r\nAccept: application/json\r\n",
+                'ignore_errors' => true,
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ],
+        ]);
+
+        $response = @file_get_contents($translateUrl, false, $ctx);
+        if ($response === false) return '';
+
+        $json = json_decode($response, true);
+        if (!is_array($json) || !isset($json[0]) || !is_array($json[0])) return '';
+
+        $translated = '';
+        foreach ($json[0] as $part) {
+            if (is_array($part) && isset($part[0]) && is_string($part[0])) {
+                $translated .= $part[0];
+            }
+        }
+
+        return trim($translated);
+    }
+
     private function normalizePhone(string $phone): string {
         return preg_replace('/[^\d+]/', '', trim($phone));
+    }
+
+    private function normalizeOtpCode(string $value): string {
+        $raw = trim((string)$value);
+        if ($raw === '') return '';
+
+        $digits = preg_replace('/\D+/', '', $raw);
+        if ($digits !== '') return $digits;
+
+        return $raw;
     }
 
     private function normalizeText(string $value, string $fallback): string {
@@ -402,6 +463,14 @@ class UsaNumber {
         $this->ensureColumn(
             'redirect_url',
             "ALTER TABLE usa_numbers ADD COLUMN redirect_url TEXT NOT NULL AFTER category"
+        );
+        $this->ensureColumn(
+            'otp_code_normalized',
+            "ALTER TABLE usa_numbers ADD COLUMN otp_code_normalized VARCHAR(64) NULL AFTER otp_code"
+        );
+        $this->ensureColumn(
+            'provider_label',
+            "ALTER TABLE usa_numbers ADD COLUMN provider_label VARCHAR(120) NULL AFTER service_name"
         );
 
         self::$schemaEnsured = true;

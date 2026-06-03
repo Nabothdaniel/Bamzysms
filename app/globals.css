@@ -1,3 +1,19 @@
+@import "tailwindcss";
+
+/* Explicit content scanning — prevents Tailwind v4 from missing any TSX/JSX files */
+@source "../app/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../lib/**/*.{ts,tsx}";
+@source "../store/**/*.{ts,tsx}";
+
+/* Expose CSS variable colors as Tailwind v4 theme tokens */
+@theme {
+  --color-primary: #2563EB;
+  --color-background: #F0F1F3;
+  --color-on-background: #111827;
+}
+
+
 /* ── Reset ────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -91,16 +107,17 @@ body {
 }
 
 /* ── Dashboard Content ─────────────────────────── */
-main {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
+/* NOTE: Placed inside @layer base so Tailwind v4 utilities can override it. */
+@layer base {
+  main {
+    width: 100%;
+    margin: 0 auto;
+  }
 
-@media (max-width: 600px) {
-  .stat-grid { grid-template-columns: 1fr !important; }
-  .history-grid { grid-template-columns: 1fr !important; }
-  main { padding: 16px 12px !important; }
+  @media (max-width: 600px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .history-grid { grid-template-columns: 1fr; }
+  }
 }
 
 
@@ -278,6 +295,9 @@ h1, h2, h3, h4, h5, h6 {
   background: #FFFFFF;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+}
+.ambient-shadow {
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.07), 0 1px 4px rgba(0,0,0,0.05);
 }
 .stat-card {
   background: #FFFFFF;

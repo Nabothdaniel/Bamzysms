@@ -84,8 +84,8 @@ export default function AdminDashboard() {
   const fetchBalance = useCallback(async () => {
     setLoadingBalance(true);
     try {
-      const res = await adminService.getProviderBalance();
-      setStats(prev => ({ ...prev, providerBalance: res?.balance ?? 0 }));
+      // const res = await adminService.getProviderBalance();
+      // setStats(prev => ({ ...prev, providerBalance: res?.balance ?? 0 }));
     } catch (e) {
       console.warn('[AdminDashboard] Provider balance fetch failed:', e);
       // Don't toast — it's handled by the card's skeleton → null display
@@ -115,13 +115,13 @@ export default function AdminDashboard() {
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const res = await adminService.getProviderStatus();
-      if (res?.data) {
-        setProviderStatus({
-          status: res.data.provider ?? 'unknown',
-          error:  res.data.error   ?? undefined,
-        });
-      }
+      // const res = await adminService.getProviderStatus();
+      // if (res?.data) {
+      //   setProviderStatus({
+      //     status: res.data.provider ?? 'unknown',
+      //     error:  res.data.error   ?? undefined,
+      //   });
+      // }
     } catch (e) {
       console.warn('[AdminDashboard] Provider status fetch failed:', e);
       setProviderStatus({ status: 'error', error: 'Could not reach provider' });
