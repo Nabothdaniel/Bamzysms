@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import Topbar from '@/components/dashboard/Topbar';
-import PinModal from '@/components/ui/PinModal';
 import { manualNumberService, TelegramNumberItem, userService } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
 import { formatMoney } from '@/lib/utils';
@@ -17,8 +16,6 @@ export default function TelegramNumbersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedNumber, setSelectedNumber] = useState<TelegramNumberItem | null>(null);
-  const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pinLoading, setPinLoading] = useState(false);
   const [cancelReason, setCancelReason] = useState<Record<number, string>>({});
   const [submittingCancelId, setSubmittingCancelId] = useState<number | null>(null);
   const [lastPurchaseOtp, setLastPurchaseOtp] = useState<{ phone: string; otp: string } | null>(null);
@@ -44,41 +41,26 @@ export default function TelegramNumbersPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleBuyClick = (item: TelegramNumberItem) => {
+  const handleBuyClick = async (item: TelegramNumberItem) => {
     if (!user) return;
     if (user.balance < Number(item.sell_price)) {
       addToast(`Insufficient balance. This number costs ${formatMoney(item.sell_price)}.`, 'error');
       return;
     }
-    setSelectedNumber(item);
-    setPinModalOpen(true);
-  };
 
-  const handlePinSuccess = async (pin: string) => {
-    if (!selectedNumber) return;
-
-    setPinLoading(true);
     try {
-      if (!user?.hasPin) {
-        await userService.updatePin(pin);
-        addToast('Transaction PIN set successfully!', 'success');
-      }
-
-      const purchaseRes = await manualNumberService.purchaseTelegram(selectedNumber.id, pin);
+      const purchaseRes = await manualNumberService.purchaseTelegram(item.id, '');
       const profileRes = await userService.getProfile();
       setUser(profileRes.data);
+      setSelectedNumber(item);
       setLastPurchaseOtp({
-        phone: selectedNumber.phone_number,
+        phone: item.phone_number,
         otp: purchaseRes?.data?.otp_code || '',
       });
-      addToast(`Telegram number ${selectedNumber.phone_number} purchased successfully`, 'success');
-      setPinModalOpen(false);
-      setSelectedNumber(null);
-      fetchData(search);
+      addToast(`Telegram number ${item.phone_number} purchased successfully`, 'success');
+      await fetchData(search);
     } catch (error: any) {
       addToast(error.message || 'Purchase failed', 'error');
-    } finally {
-      setPinLoading(false);
     }
   };
 
@@ -116,27 +98,12 @@ export default function TelegramNumbersPage() {
           <span>Telegram Numbers</span>
         </div>
 
-        <PinModal
-          isOpen={pinModalOpen}
-          onClose={() => {
-            setPinModalOpen(false);
-            setSelectedNumber(null);
-          }}
-          onSuccess={handlePinSuccess}
-          isLoading={pinLoading}
-          title={!user?.hasPin ? 'Set Your Transaction PIN' : 'Confirm Telegram Purchase'}
-          description={
-            !user?.hasPin
-              ? "You haven't set a transaction PIN yet. Create one to secure Telegram purchases."
-              : `Enter your 4-digit PIN to buy ${selectedNumber?.phone_number || 'this number'} for ${formatMoney(selectedNumber?.sell_price || 0)}.`
-          }
-        />
 
         <section className="hero-card">
           <div className="hero-copy">
             <div className="hero-kicker">Telegram Numbers</div>
             <h1>Pick A Number, Pay, And Move On</h1>
-            <p>Choose any available number below, confirm with your wallet PIN, and check your OTP in the table after purchase.</p>
+            <p>Choose any available number below, complete the purchase instantly, and check your OTP in the table after purchase.</p>
             <div className="wallet-chip">
               <RiWalletLine size={16} />
               Wallet Balance: {formatMoney(user?.balance)}

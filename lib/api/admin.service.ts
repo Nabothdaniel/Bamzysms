@@ -77,6 +77,26 @@ export interface AdminUsaNumber {
   created_at: string;
 }
 
+export interface PricingOverride {
+  id?: number;
+  service_code: string;
+  country_id: number;
+  multiplier?: number | null;
+  fixed_price?: number | null;
+  updated_at?: string;
+}
+
+export interface PricingServiceItem {
+  code: string;
+  name: string;
+  base_cost_ngn?: number;
+  final_price?: number;
+  profit_margin?: number;
+  inventory?: number;
+  effective_multiplier?: number;
+  override?: PricingOverride | null;
+}
+
 export const adminService = {
   // Get paginated users
   getUsers: (params: { page: number; limit: number; search?: string; role?: string }): Promise<{ 
@@ -126,7 +146,24 @@ export const adminService = {
   updateSettings: (settings: Partial<AdminSettings>): Promise<{ status: string; message: string }> =>
     apiClient.post('/admin/settings', settings),
 
-  // NOTE: SMS Bower methods removed: getProviderBalance, getPricingOverrides, updatePricingOverride, bulkUpdatePricingOverrides, deletePricingOverride, getPaginatedServices, getCountries, getProviderStatus
+  getCountries: (): Promise<{ status: string; data: Array<{ id: number; eng: string; flag?: string }> }> =>
+    apiClient.get('/admin/countries'),
+
+  getPaginatedServices: (params: { page: number; limit: number; search?: string; countryId?: number }): Promise<{
+    status: string;
+    data: PricingServiceItem[];
+    pagination: { total: number; page: number; limit: number; pages: number };
+  }> =>
+    apiClient.get(`/admin/pricing/services?page=${params.page}&limit=${params.limit}&search=${encodeURIComponent(params.search || '')}&countryId=${params.countryId ?? 0}`),
+
+  updatePricingOverride: (payload: { serviceCode: string; countryId?: number; multiplier?: number; fixedPrice?: number }): Promise<{ status: string; message: string }> =>
+    apiClient.post('/admin/pricing/update', payload),
+
+  bulkUpdatePricingOverrides: (payload: { countryId?: number; overrides: Array<{ serviceCode: string; multiplier?: number; fixedPrice?: number }> }): Promise<{ status: string; message: string }> =>
+    apiClient.post('/admin/pricing/bulk-update', payload),
+
+  deletePricingOverride: (serviceCode: string, countryId = 0): Promise<{ status: string; message: string }> =>
+    apiClient.delete(`/admin/pricing/delete?serviceCode=${encodeURIComponent(serviceCode)}&countryId=${countryId}`),
 
   // Paginated Audit Logs
   getSystemLogs: (params: { page: number; limit: number }): Promise<{ 

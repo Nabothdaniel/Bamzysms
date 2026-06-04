@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import Topbar from '@/components/dashboard/Topbar';
 import EmptyHistory from '@/components/dashboard/EmptyHistory';
@@ -20,9 +21,11 @@ import { formatMoney } from '@/lib/utils';
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 const PAGE_SIZE = 12;
+const USA_PAGE_SIZE = 10;
 
 export default function NumbersHistoryPage() {
   const { addToast } = useAppStore();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
   const [telegramLoading, setTelegramLoading] = useState(true);
@@ -35,6 +38,9 @@ export default function NumbersHistoryPage() {
   const [telegramCancelReason, setTelegramCancelReason] = useState<Record<number, string>>({});
   const [submittingTelegramCancelId, setSubmittingTelegramCancelId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [usaPage, setUsaPage] = useState(1);
+  const usaSectionRef = useRef<HTMLDivElement | null>(null);
+  const autoFocusUsaRef = useRef<number | null>(null);
 
   // Pagination / Infinite Scroll States
   const [total, setTotal] = useState(0);
@@ -99,6 +105,15 @@ export default function NumbersHistoryPage() {
       setUsaLoading(false);
     }
   }, [addToast]);
+
+  const usaTotalPages = Math.max(1, Math.ceil(usaItems.length / USA_PAGE_SIZE));
+  const visibleUsaItems = usaItems.slice((usaPage - 1) * USA_PAGE_SIZE, usaPage * USA_PAGE_SIZE);
+
+  useEffect(() => {
+    if (usaPage > usaTotalPages) {
+      setUsaPage(usaTotalPages);
+    }
+  }, [usaPage, usaTotalPages]);
 
   const startPolling = useCallback((dbId: number, activationId: number) => {
     const poll = async () => {
@@ -230,7 +245,7 @@ export default function NumbersHistoryPage() {
     }
   };
 
-  const handleRefreshUsaOtp = async (item: UsaNumberItem) => {
+  const handleRefreshUsaOtp = useCallback(async (item: UsaNumberItem) => {
     setRefreshingUsaOtpId(item.id);
     try {
       const res = await usaNumberService.refreshOtp(item.id);
@@ -245,7 +260,33 @@ export default function NumbersHistoryPage() {
     } finally {
       setRefreshingUsaOtpId(null);
     }
-  };
+  }, [addToast]);
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section === 'usa' && usaSectionRef.current) {
+      usaSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const focusValue = Number(searchParams.get('focus') ?? '');
+    if (!focusValue || usaLoading || autoFocusUsaRef.current === focusValue) {
+      return;
+    }
+
+    const target = usaItems.find((item) => item.id === focusValue);
+    if (!target) {
+      return;
+    }
+
+    autoFocusUsaRef.current = focusValue;
+    const targetIndex = usaItems.findIndex((item) => item.id === focusValue);
+    if (targetIndex >= 0) {
+      setUsaPage(Math.floor(targetIndex / USA_PAGE_SIZE) + 1);
+    }
+    void handleRefreshUsaOtp(target);
+  }, [handleRefreshUsaOtp, searchParams, usaItems, usaLoading]);
 
   return (
     <DashboardLayout>
@@ -309,24 +350,58 @@ export default function NumbersHistoryPage() {
 
         <section style={{ marginTop: 28 }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
-            <div>
+          <div>
               <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800, color: 'var(--color-primary)' }}>
                 USA Numbers Beta
               </div>
               <h2 style={{ marginTop: 8, fontSize: '1.6rem', fontWeight: 800 }}>USA Number Beta History</h2>
+              <p style={{ marginTop: 8, color: 'var(--color-text-faint)' }}>
+                Bought from the beta page? This section shows the OTP after it is fetched from the redirect response.
+              </p>
             </div>
             <Link href="/dashboard/user/usa-numbers-beta" className="btn-secondary">
               Buy USA Numbers Beta
             </Link>
           </div>
 
+          <div ref={usaSectionRef} />
+
           {usaLoading ? (
             <PageLoader />
           ) : usaItems.length === 0 ? (
             <EmptyHistory message="No USA number beta history found" />
           ) : (
+            <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div style={{ color: 'var(--color-text-faint)', fontSize: '0.9rem' }}>
+                Showing {Math.min((usaPage - 1) * USA_PAGE_SIZE + 1, usaItems.length)}-{Math.min(usaPage * USA_PAGE_SIZE, usaItems.length)} of {usaItems.length}
+              </div>
+              {usaTotalPages > 1 && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn-ghost"
+                    style={{ minWidth: 'auto', padding: '8px 12px' }}
+                    onClick={() => setUsaPage((page) => Math.max(1, page - 1))}
+                    disabled={usaPage <= 1}
+                  >
+                    Prev
+                  </button>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                    Page {usaPage} of {usaTotalPages}
+                  </span>
+                  <button
+                    className="btn-ghost"
+                    style={{ minWidth: 'auto', padding: '8px 12px' }}
+                    onClick={() => setUsaPage((page) => Math.min(usaTotalPages, page + 1))}
+                    disabled={usaPage >= usaTotalPages}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 28 }}>
-              {usaItems.map((item) => {
+              {visibleUsaItems.map((item) => {
                 const visible = !!usaVisibility[item.id];
                 return (
                   <article key={item.id} className="stat-card" style={{ padding: 20 }}>
@@ -383,6 +458,7 @@ export default function NumbersHistoryPage() {
                 );
               })}
             </div>
+            </>
           )}
 
         </section>

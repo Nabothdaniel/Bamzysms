@@ -335,6 +335,11 @@ class UsaNumber {
             if ($response === false) return '';
 
             $body = trim($response);
+            $providerCode = $this->extractProviderCode($body);
+            if ($providerCode !== '') {
+                return $providerCode;
+            }
+
             $json = json_decode($body, true);
             if (is_array($json)) {
                 $candidate = (string)(
@@ -357,6 +362,21 @@ class UsaNumber {
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    private function extractProviderCode(string $body): string {
+        if ($body === '') return '';
+
+        $json = json_decode($body, true);
+        if (is_array($json) && isset($json['code']) && is_scalar($json['code'])) {
+            return $this->normalizeOtpCode((string) $json['code']);
+        }
+
+        if (preg_match('/"code"\s*:\s*"?([0-9]+)"?/i', $body, $matches) === 1) {
+            return $this->normalizeOtpCode($matches[1]);
+        }
+
+        return '';
     }
 
     private function extractVisibleText(string $html): string {

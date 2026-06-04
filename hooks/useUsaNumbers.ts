@@ -151,12 +151,7 @@ export function useUsaNumbers() {
 
     setPinLoading(true);
     try {
-      if (!user?.hasPin) {
-        await userService.updatePin(pin);
-        addToast('Transaction PIN set successfully!', 'success');
-      }
-
-      const purchaseRes = await usaNumberService.purchase(selectedNumber.id, pin);
+      const purchaseRes = await usaNumberService.purchase(selectedNumber.id, pin || '');
       const profileRes = await userService.getProfile();
 
       setUser(profileRes.data);

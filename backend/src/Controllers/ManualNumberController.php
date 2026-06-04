@@ -45,11 +45,11 @@ class ManualNumberController extends Controller {
         $numberId = (int)($data['numberId'] ?? 0);
         $pin = trim((string)($data['pin'] ?? ''));
 
-        if ($numberId <= 0 || $pin === '') {
-            return $this->json(['status' => 'error', 'message' => 'Number and PIN are required.'], 400);
+        if ($numberId <= 0) {
+            return $this->json(['status' => 'error', 'message' => 'Number is required.'], 400);
         }
 
-        if (!$this->userModel->verifyPin($userId, $pin)) {
+        if ($pin !== '' && !$this->userModel->verifyPin($userId, $pin)) {
             return $this->json(['status' => 'error', 'message' => 'Invalid transaction PIN.'], 401);
         }
 
