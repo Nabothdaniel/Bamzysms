@@ -1,5 +1,6 @@
 'use client';
 
+import Papa from 'papaparse';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { AdminUsaNumber, adminService } from '@/lib/api/admin.service';
@@ -76,6 +77,7 @@ export default function AdminUsaNumbersPage() {
   const [bulkService, setBulkService] = useState('USA Number');
   const [bulkCategory, setBulkCategory] = useState('WhatsApp');
   const [bulkPrice, setBulkPrice] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
   const canLoad = hasHydrated && user?.role === 'admin';
 
@@ -167,9 +169,30 @@ export default function AdminUsaNumbersPage() {
 
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rows = parseBulkRows(bulkText, bulkService, bulkCategory, Number(bulkPrice) || 0);
+    let rows: any[] = [];
+
+    if (file) {
+      const parsed = await new Promise<any[]>((resolve) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+        });
+      });
+      rows = parsed.map((row: any) => ({
+        phone_number: row.phone_number,
+        redirect_url: row.redirect_url,
+        service_name: bulkService,
+        category: bulkCategory,
+        sell_price: Number(bulkPrice) || 0,
+        notes: row.notes || ''
+      }));
+    } else {
+      rows = parseBulkRows(bulkText, bulkService, bulkCategory, Number(bulkPrice) || 0);
+    }
+
     if (rows.length === 0) {
-      addToast('Add at least one row first', 'error');
+      addToast('Add at least one row or upload a CSV file', 'error');
       return;
     }
 
@@ -177,10 +200,8 @@ export default function AdminUsaNumbersPage() {
     try {
       const res = await adminService.bulkCreateUsaNumbers(rows);
       addToast(`${res.data.created} USA number(s) uploaded`, 'success');
-      if (res.data.failed > 0) {
-        addToast(`${res.data.failed} row(s) failed during bulk upload`, 'info');
-      }
       setBulkText('');
+      setFile(null);
       fetchNumbers(1, search, status);
     } catch (error: any) {
       addToast(error.message || 'Bulk upload failed', 'error');
@@ -414,11 +435,21 @@ export default function AdminUsaNumbersPage() {
               </label>
 
               <label className="field">
-                <span className="field-label">Rows</span>
+                <span className="field-label">Or upload CSV</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => { setFile(e.target.files?.[0] || null); setBulkText(''); }}
+                  className="form-input"
+                />
+              </label>
+
+              <label className="field">
+                <span className="field-label">Rows (Manual)</span>
                 <textarea
                   value={bulkText}
-                  onChange={(e) => setBulkText(e.target.value)}
-                  placeholder={'+12025550123,https://example.com/otp/123\n+12025550124,https://example.com/otp/124'}
+                  onChange={(e) => { setBulkText(e.target.value); setFile(null); }}
+                  placeholder={'+12025550123,https://example.com/otp/123'}
                   className="form-input form-textarea bulk-area"
                   rows={8}
                 />

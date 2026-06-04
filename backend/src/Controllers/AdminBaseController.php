@@ -7,7 +7,6 @@ use BamzySMS\Models\User;
 use BamzySMS\Models\Setting;
 use BamzySMS\Models\Transaction;
 use BamzySMS\Models\SystemEvent;
-use BamzySMS\Services\SmsBowerClient;
 use BamzySMS\Core\Database;
 
 abstract class AdminBaseController extends Controller {
@@ -15,7 +14,6 @@ abstract class AdminBaseController extends Controller {
     protected $settingModel;
     protected $transactionModel;
     protected $eventModel;
-    protected $smsClient;
     protected $db;
 
     public function __construct() {
@@ -23,7 +21,6 @@ abstract class AdminBaseController extends Controller {
         $this->settingModel     = new Setting();
         $this->transactionModel = new Transaction();
         $this->eventModel       = new SystemEvent();
-        $this->smsClient        = new SmsBowerClient();
         $this->db               = Database::getInstance()->getConnection();
     }
 

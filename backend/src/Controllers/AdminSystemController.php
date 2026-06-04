@@ -169,12 +169,8 @@ class AdminSystemController extends AdminBaseController {
         $userId = AuthMiddleware::handle();
         $this->checkAdmin($userId);
 
-        try {
-            $balance = $this->smsClient->getBalance();
-            return $this->json(['status' => 'success', 'balance' => $balance]);
-        } catch (\Exception $e) {
-            return $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
+        // Returning 0 as SMS Bower is removed
+        return $this->json(['status' => 'success', 'balance' => 0]);
     }
 
     /**
@@ -184,22 +180,11 @@ class AdminSystemController extends AdminBaseController {
         $userId = AuthMiddleware::handle();
         $this->checkAdmin($userId);
         
-        try {
-            $balance = $this->smsClient->getBalance();
-            return $this->json([
-                'status' => 'success',
-                'provider' => 'online',
-                'latency' => 'good'
-            ]);
-        } catch (\Throwable $e) {
-            $isTimeout = str_contains($e->getMessage(), 'slow to respond') || str_contains($e->getMessage(), 'timeout');
-            return $this->json([
-                'status' => 'success',
-                'provider' => 'offline',
-                'error' => $e->getMessage(),
-                'type' => $isTimeout ? 'timeout' : 'error'
-            ]);
-        }
+        return $this->json([
+            'status' => 'success',
+            'provider' => 'offline',
+            'note' => 'SMS Provider integration disabled.'
+        ]);
     }
 
     /**

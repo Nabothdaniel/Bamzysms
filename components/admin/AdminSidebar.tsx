@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  RiDashboardLine, RiMoneyDollarCircleLine, RiSettings4Line, 
+  RiDashboardLine, RiSettings4Line, 
   RiGroupLine, RiLogoutBoxRLine, RiShieldUserLine,
   RiHistoryLine, RiExchangeFundsLine, RiSimCardLine
 } from 'react-icons/ri';
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard/admin/dashboard', icon: RiDashboardLine },
   { name: 'User Management', href: '/dashboard/admin/users', icon: RiGroupLine },
   { name: 'Funding History', href: '/dashboard/admin/funding', icon: RiExchangeFundsLine },
-  { name: 'Price Management', href: '/dashboard/admin/prices', icon: RiMoneyDollarCircleLine },
   { name: 'Telegram Inventory', href: '/dashboard/admin/telegram-numbers', icon: RiSimCardLine },
   { name: 'USA Numbers', href: '/dashboard/admin/usa-numbers', icon: RiSimCardLine },
   { name: 'Global Settings', href: '/dashboard/admin/settings', icon: RiSettings4Line },

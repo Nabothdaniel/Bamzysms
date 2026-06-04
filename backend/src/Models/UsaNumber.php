@@ -294,15 +294,33 @@ class UsaNumber {
             throw new RuntimeException('USA number not found or not owned by you.');
         }
 
-        $otp = $this->fetchOtpFromUrl($number['redirect_url'] ?? '');
-        $normalizedOtp = $this->normalizeOtpCode($otp);
+        $lockName = 'usa_number_otp_' . $numberId;
+        $lockAcquired = false;
 
-        if ($normalizedOtp !== '') {
-            $this->db->prepare("UPDATE usa_numbers SET otp_code = ?, otp_code_normalized = ? WHERE id = ?")
-                ->execute([$normalizedOtp, $normalizedOtp, $numberId]);
+        try {
+            $stmtLock = $this->db->prepare("SELECT GET_LOCK(?, 10)");
+            $stmtLock->execute([$lockName]);
+            $lockAcquired = (int)$stmtLock->fetchColumn() === 1;
+
+            if (!$lockAcquired) {
+                throw new RuntimeException('This number is already being refreshed. Please try again in a moment.');
+            }
+
+            $otp = $this->fetchOtpFromUrl($number['redirect_url'] ?? '');
+            $normalizedOtp = $this->normalizeOtpCode($otp);
+
+            if ($normalizedOtp !== '') {
+                $this->db->prepare("UPDATE usa_numbers SET otp_code = ?, otp_code_normalized = ? WHERE id = ? AND sold_to = ?")
+                    ->execute([$normalizedOtp, $normalizedOtp, $numberId, $userId]);
+            }
+
+            return $normalizedOtp;
+        } finally {
+            if ($lockAcquired) {
+                $stmtRelease = $this->db->prepare("SELECT RELEASE_LOCK(?)");
+                $stmtRelease->execute([$lockName]);
+            }
         }
-
-        return $normalizedOtp;
     }
 
     /* ------------------------------------------------------------------ */
@@ -331,8 +349,8 @@ class UsaNumber {
                 ],
             ]);
 
-            $response = @file_get_contents($url, false, $ctx);
-            if ($response === false) return '';
+            $response = $this->fetchUrlBody($url, $ctx);
+            if ($response === '') return '';
 
             $body = trim($response);
             $providerCode = $this->extractProviderCode($body);
@@ -342,19 +360,42 @@ class UsaNumber {
 
             $json = json_decode($body, true);
             if (is_array($json)) {
-                $candidate = (string)(
-                    $json['otp'] ??
-                    $json['code'] ??
-                    $json['pin'] ??
-                    $json['otp_code'] ??
-                    $json['data']['otp'] ??
-                    $json['data']['code'] ??
-                    $body
-                );
-                return $this->normalizeOtpCode($candidate);
+                $linkedPayload = $this->extractPayloadUrl($json);
+                if ($linkedPayload !== '' && $linkedPayload !== $url) {
+                    $linkedResponse = $this->fetchUrlBody($linkedPayload, $ctx);
+                    if ($linkedResponse !== '') {
+                        $linkedCode = $this->extractProviderCode(trim($linkedResponse));
+                        if ($linkedCode !== '') {
+                            return $linkedCode;
+                        }
+                    }
+                }
+
+                return $this->extractCodeFromPayload($json);
+            }
+
+            if ($this->isHttpUrl($body)) {
+                $linkedResponse = $this->fetchUrlBody($body, $ctx);
+                if ($linkedResponse !== '') {
+                    $linkedCode = $this->extractProviderCode(trim($linkedResponse));
+                    if ($linkedCode !== '') {
+                        return $linkedCode;
+                    }
+                }
             }
 
             $plainText = $this->extractVisibleText($body);
+            $linkedTextUrl = $this->extractFirstHttpUrl($plainText);
+            if ($linkedTextUrl !== '') {
+                $linkedResponse = $this->fetchUrlBody($linkedTextUrl, $ctx);
+                if ($linkedResponse !== '') {
+                    $linkedCode = $this->extractProviderCode(trim($linkedResponse));
+                    if ($linkedCode !== '') {
+                        return $linkedCode;
+                    }
+                }
+            }
+
             $translated = $this->translateIfNeeded($plainText);
             $candidate = $translated !== '' ? $translated : $plainText;
 
@@ -368,12 +409,103 @@ class UsaNumber {
         if ($body === '') return '';
 
         $json = json_decode($body, true);
-        if (is_array($json) && isset($json['code']) && is_scalar($json['code'])) {
-            return $this->normalizeOtpCode((string) $json['code']);
+        if (is_array($json)) {
+            return $this->extractCodeFromPayload($json);
         }
 
         if (preg_match('/"code"\s*:\s*"?([0-9]+)"?/i', $body, $matches) === 1) {
             return $this->normalizeOtpCode($matches[1]);
+        }
+
+        return '';
+    }
+
+    private function fetchUrlBody(string $url, $context): string {
+        $url = trim($url);
+        if ($url === '' || !$this->isHttpUrl($url)) {
+            return '';
+        }
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 8,
+                CURLOPT_TIMEOUT => 12,
+                CURLOPT_CONNECTTIMEOUT => 6,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; BamzySMS/1.0; +https://bamzysms.com)',
+                CURLOPT_HTTPHEADER => [
+                    'Accept: application/json,text/plain,text/html,*/*',
+                    'Accept-Language: en-US,en;q=0.9',
+                    'Cache-Control: no-cache',
+                ],
+            ]);
+
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            return is_string($response) ? trim($response) : '';
+        }
+
+        $response = @file_get_contents($url, false, $context);
+        return is_string($response) ? trim($response) : '';
+    }
+
+    private function extractPayloadUrl(array $payload): string {
+        $keys = ['payload', 'data', 'result'];
+        foreach ($keys as $key) {
+            if (!isset($payload[$key])) {
+                continue;
+            }
+
+            $value = $payload[$key];
+            if (is_string($value) && $this->isHttpUrl($value)) {
+                return trim($value);
+            }
+
+            if (is_array($value)) {
+                foreach (['url', 'link', 'href', 'redirect_url'] as $urlKey) {
+                    if (isset($value[$urlKey]) && is_string($value[$urlKey]) && $this->isHttpUrl($value[$urlKey])) {
+                        return trim($value[$urlKey]);
+                    }
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function extractCodeFromPayload(array $payload): string {
+        foreach (['payload', 'data', 'result'] as $containerKey) {
+            if (!isset($payload[$containerKey])) {
+                continue;
+            }
+
+            $value = $payload[$containerKey];
+            if (is_array($value)) {
+                $code = $this->extractCodeFromPayload($value);
+                if ($code !== '') {
+                    return $code;
+                }
+                continue;
+            }
+
+            if (is_scalar($value) && $containerKey === 'payload') {
+                $rawValue = trim((string)$value);
+                $code = $this->normalizeOtpCode($rawValue);
+                if ($code !== '' && preg_match('/\d/', $rawValue) === 1 && !$this->isHttpUrl($rawValue)) {
+                    return $code;
+                }
+            }
+        }
+
+        foreach (['code', 'otp', 'pin', 'otp_code', 'verification_code', 'verificationCode'] as $codeKey) {
+            if (isset($payload[$codeKey]) && is_scalar($payload[$codeKey])) {
+                return $this->normalizeOtpCode((string)$payload[$codeKey]);
+            }
         }
 
         return '';
@@ -435,6 +567,22 @@ class UsaNumber {
         if ($digits !== '') return $digits;
 
         return $raw;
+    }
+
+    private function isHttpUrl(string $value): bool {
+        $parts = parse_url(trim($value));
+        return is_array($parts)
+            && in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true)
+            && !empty($parts['host']);
+    }
+
+    private function extractFirstHttpUrl(string $value): string {
+        if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $value, $matches) !== 1) {
+            return '';
+        }
+
+        $url = rtrim($matches[0], '.,;)');
+        return $this->isHttpUrl($url) ? $url : '';
     }
 
     private function normalizeText(string $value, string $fallback): string {

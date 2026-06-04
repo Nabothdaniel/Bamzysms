@@ -23,6 +23,8 @@ export default function LoginPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
+  
+
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!form.username || !form.password) { addToast('Please fill in all fields.', 'error'); return; }

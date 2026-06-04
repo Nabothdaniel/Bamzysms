@@ -69,6 +69,7 @@ export default function UsaNumbersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [marketPage, setMarketPage] = useState(1);
+  const [purchasingNumberId, setPurchasingNumberId] = useState<number | null>(null);
 
   /* ── data ── */
   const fetchData = useCallback(async () => {
@@ -94,12 +95,14 @@ export default function UsaNumbersPage() {
 
   /* ── actions ── */
   const handleBuy = async (item: UsaNumberItem) => {
+    if (purchasingNumberId !== null) return;
     if (!user) return;
     if (Number(user.balance) < Number(item.sell_price)) {
       addToast(`Insufficient balance. This number costs ${formatMoney(item.sell_price)}.`, 'error');
       return;
     }
 
+    setPurchasingNumberId(item.id);
     try {
       const purchaseRes = await usaNumberService.purchase(item.id, '');
       setUser((await userService.getProfile()).data);
@@ -108,6 +111,7 @@ export default function UsaNumbersPage() {
       router.push(`/dashboard/user/numbers-history?section=usa&focus=${focusId}`);
     } catch (e: any) {
       addToast(e.message || 'Purchase failed', 'error');
+      setPurchasingNumberId(null);
     }
   };
 
@@ -177,13 +181,19 @@ export default function UsaNumbersPage() {
         .unb-mkt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 12px; }
         .unb-mkt-card { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,.04); transition: border-color .2s, box-shadow .2s; }
         .unb-mkt-card:hover { border-color: #2563EB; box-shadow: 0 4px 20px rgba(37,99,235,.1); }
+        .unb-mkt-card.is-disabled { opacity: .55; pointer-events: none; filter: grayscale(.25); }
+        .unb-mkt-card.is-disabled:hover { border-color: #E5E7EB; box-shadow: 0 1px 6px rgba(0,0,0,.04); }
+        .unb-mkt-card.is-unavailable { border-color: #FCA5A5; background: #FEF2F2; opacity: .72; pointer-events: none; }
+        .unb-mkt-card.is-unavailable:hover { border-color: #FCA5A5; box-shadow: 0 1px 6px rgba(0,0,0,.04); }
         .unb-mkt-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .unb-svc-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
         .unb-mkt-price { font-size: 16px; font-weight: 800; color: #111827; }
         .unb-mkt-name { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 4px; }
         .unb-mkt-cat { font-size: 11.5px; color: #6B7280; margin-bottom: 14px; }
         .unb-mkt-badge { font-size: 10.5px; color: #6B7280; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 999px; padding: 2px 8px; display: inline-block; margin-bottom: 12px; }
+        .unb-mkt-badge.is-unavailable { color: #DC2626; background: #FEE2E2; border-color: #FCA5A5; }
         .unb-buy-btn { width: 100%; background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: all .18s; font-family: inherit; }
+        .unb-buy-btn.is-unavailable { background: #FEE2E2; color: #DC2626; border-color: #FCA5A5; }
         .unb-buy-btn:hover:not(:disabled) { background: #2563EB; color: #fff; border-color: #2563EB; }
         .unb-buy-btn:disabled { opacity: .45; cursor: not-allowed; }
         .unb-empty-mkt { grid-column: 1/-1; text-align: center; padding: 40px 24px; color: #9CA3AF; font-size: 14px; }
@@ -304,8 +314,15 @@ export default function UsaNumbersPage() {
           ) : (
             pagedServiceGroups.map(({ service_name, category, count, cheapest }) => {
               const { icon, color, bg } = getServiceVisual(service_name);
+              const isPurchasing = purchasingNumberId === cheapest.id;
+              const purchaseInProgress = purchasingNumberId !== null;
+              const cardClassName = [
+                'unb-mkt-card',
+                isPurchasing ? 'is-unavailable' : '',
+                purchaseInProgress && !isPurchasing ? 'is-disabled' : '',
+              ].filter(Boolean).join(' ');
               return (
-                <div key={service_name} className="unb-mkt-card">
+                <div key={service_name} className={cardClassName} aria-busy={isPurchasing}>
                   <div className="unb-mkt-top">
                     <div className="unb-svc-icon" style={{ background: bg, color }}>
                       {icon}
@@ -314,12 +331,15 @@ export default function UsaNumbersPage() {
                   </div>
                   <p className="unb-mkt-name">{service_name}</p>
                   <p className="unb-mkt-cat">{category}</p>
-                  <span className="unb-mkt-badge">{count} in stock</span>
+                  <span className={`unb-mkt-badge${isPurchasing ? ' is-unavailable' : ''}`}>
+                    {isPurchasing ? 'Not Available' : `${count} in stock`}
+                  </span>
                   <button
-                    className="unb-buy-btn"
+                    className={`unb-buy-btn${isPurchasing ? ' is-unavailable' : ''}`}
                     onClick={() => handleBuy(cheapest)}
+                    disabled={purchaseInProgress}
                   >
-                    Buy With Balance
+                    {isPurchasing ? 'Not Available' : purchaseInProgress ? 'Please wait...' : 'Buy With Balance'}
                   </button>
                 </div>
               );
